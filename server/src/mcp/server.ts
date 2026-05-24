@@ -11,6 +11,9 @@ import { registerCaptureTools } from "./tools/capture.js";
 import { registerPlaytestTools } from "./tools/playtest.js";
 import { registerGitTools } from "./tools/git.js";
 import { registerPlaceTools } from "./tools/places.js";
+import { registerSelectionTools } from "./tools/selection.js";
+import { registerTagTools } from "./tools/tags.js";
+import { registerSecurityTools } from "./tools/security.js";
 
 export function createServer(): McpServer {
   const server = new McpServer({ name: "tufan-blox-bridge", version: "0.2.0" });
@@ -36,6 +39,9 @@ export function createServer(): McpServer {
   registerCaptureTools(server);
   registerPlaytestTools(server);
   registerGitTools(server);
+  registerSelectionTools(server);
+  registerTagTools(server);
+  registerSecurityTools(server);
 
   return server;
 }

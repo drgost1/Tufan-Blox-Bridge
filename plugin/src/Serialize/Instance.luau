@@ -53,7 +53,18 @@ end
 -- Convert a Roblox value to a JSON-safe representation.
 function Serialize.encodeValue(value: any): any
 	local t = typeof(value)
-	if t == "number" or t == "string" or t == "boolean" then
+	if t == "string" then
+		-- guard against invalid UTF-8 (JSONEncode throws on it)
+		if utf8.len(value) == nil then
+			return string.format("<binary string, %d bytes>", #value)
+		end
+		return value
+	elseif t == "number" then
+		if value ~= value or value == math.huge or value == -math.huge then
+			return tostring(value) -- NaN/inf -> string (JSONEncode rejects them)
+		end
+		return value
+	elseif t == "boolean" then
 		return value
 	elseif t == "nil" then
 		return nil

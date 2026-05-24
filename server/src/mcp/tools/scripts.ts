@@ -45,4 +45,24 @@ export function registerScriptTools(server: McpServer) {
         place,
       ),
   );
+
+  server.registerTool(
+    "find_and_replace_in_scripts",
+    {
+      description: "Project-wide plain-text find & replace across all scripts. Set dryRun=true first to preview which scripts + how many hits before applying.",
+      inputSchema: {
+        find: z.string().describe("Plain text to find (not a pattern)"),
+        replace: z.string().describe("Replacement text"),
+        dryRun: z.boolean().optional().describe("Preview only; don't modify (default false)"),
+        place: placeArg,
+      },
+    },
+    async ({ find, replace, dryRun, place }) =>
+      runStudio("findAndReplace", { find, replace, dryRun: dryRun ?? false }, (r) => {
+        const edits = r?.edits ?? [];
+        const head = `${r?.dryRun ? "[dry run] " : ""}${edits.length} script(s)${r?.dryRun ? " would be" : ""} changed`;
+        if (!edits.length) return head;
+        return head + ":\n" + edits.map((e: any) => `  ${e.path} (${e.count}×)`).join("\n");
+      }, place),
+  );
 }

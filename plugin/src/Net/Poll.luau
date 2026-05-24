@@ -60,13 +60,33 @@ function Poll:_handle(cmd)
 		self.hooks.onActivity(string.format("%s %s", ok and "✓" or "✗", cmd.op))
 	end
 
-	pcall(function()
-		self:_post("/response", {
+	-- Always send a response. If the result can't be JSON-encoded (e.g. it
+	-- contains an invalid-UTF8 string or NaN), fall back to an error response
+	-- so the server never hangs waiting.
+	local payload = {
+		sessionId = self.ctx.sessionId,
+		id = cmd.id,
+		ok = ok,
+		result = ok and result or nil,
+		error = (not ok) and tostring(result) or nil,
+	}
+	local encodeOk, encoded = pcall(function()
+		return HttpService:JSONEncode(payload)
+	end)
+	if not encodeOk then
+		encoded = HttpService:JSONEncode({
 			sessionId = self.ctx.sessionId,
 			id = cmd.id,
-			ok = ok,
-			result = ok and result or nil,
-			error = (not ok) and tostring(result) or nil,
+			ok = false,
+			error = string.format("result of '%s' is not JSON-serializable", cmd.op),
+		})
+	end
+	pcall(function()
+		HttpService:RequestAsync({
+			Url = Config.serverUrl .. "/response",
+			Method = "POST",
+			Headers = { ["Content-Type"] = "application/json" },
+			Body = encoded,
 		})
 	end)
 end

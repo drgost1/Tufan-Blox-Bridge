@@ -43,4 +43,19 @@ export function registerPropertyTools(server: McpServer) {
         place,
       ),
   );
+
+  server.registerTool(
+    "get_attributes",
+    { description: "All attributes of the instance at path.", inputSchema: { path: z.string(), place: placeArg } },
+    async ({ path, place }) => runStudio("getAttributes", { path }, (r) => JSON.stringify(r?.attributes ?? {}, null, 2), place),
+  );
+
+  server.registerTool(
+    "set_attribute",
+    {
+      description: "Set an attribute on the instance at path (value may be primitive or a typed wrapper like {Vector3:[x,y,z]}).",
+      inputSchema: { path: z.string(), name: z.string(), value: z.any(), place: placeArg },
+    },
+    async ({ path, name, value, place }) => runStudio("setAttribute", { path, name, value }, () => `Set attribute ${name}`, place),
+  );
 }

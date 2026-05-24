@@ -81,4 +81,28 @@ return function(register)
 		end
 		return { paths = paths }
 	end)
+
+	register("getAttributes", function(args)
+		local inst, err = Serialize.resolve(args.path)
+		if not inst then error(err) end
+		local out = {}
+		for k, v in pairs(inst:GetAttributes()) do
+			out[k] = Serialize.encodeValue(v)
+		end
+		return { attributes = out }
+	end)
+
+	register("setAttribute", function(args)
+		local inst, err = Serialize.resolve(args.path)
+		if not inst then error(err) end
+		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: set attribute " .. args.name)
+		local ok, setErr = pcall(function()
+			inst:SetAttribute(args.name, Serialize.decodeValue(args.value))
+		end)
+		if recordingId then
+			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+		end
+		if not ok then error("failed to set attribute: " .. tostring(setErr)) end
+		return { ok = true }
+	end)
 end

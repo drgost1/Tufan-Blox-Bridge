@@ -59,4 +59,29 @@ return function(register)
 		end
 		return { scripts = scripts }
 	end)
+
+	register("findAndReplace", function(args)
+		-- args: find (plain text), replace, dryRun (bool)
+		local find = args.find
+		local replace = args.replace or ""
+		local dryRun = args.dryRun
+		local edits = {}
+		for _, d in ipairs(game:GetDescendants()) do
+			if d:IsA("LuaSourceContainer") then
+				local ok, src = pcall(function() return d.Source end)
+				if ok and src and string.find(src, find, 1, true) then
+					-- plain (non-pattern) replace
+					local newSrc, count = src:gsub(find:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%1"), (replace:gsub("%%", "%%%%")))
+					table.insert(edits, { path = d:GetFullName(), count = count })
+					if not dryRun then
+						local setOk = pcall(function()
+							ScriptEditorService:UpdateSourceAsync(d, function() return newSrc end)
+						end)
+						if not setOk then d.Source = newSrc end
+					end
+				end
+			end
+		end
+		return { dryRun = dryRun and true or false, edits = edits, scripts = #edits }
+	end)
 end

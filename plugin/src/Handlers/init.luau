@@ -15,6 +15,9 @@ local function build(ctx)
 	require(script.Logs)(register, ctx)
 	require(script.Assets)(register, ctx)
 	require(script.System)(register, ctx)
+	require(script.Selection)(register, ctx)
+	require(script.Tags)(register, ctx)
+	require(script.Security)(register, ctx)
 	require(script.Parent.Sync.Apply)(register, ctx)
 
 	return dispatch
