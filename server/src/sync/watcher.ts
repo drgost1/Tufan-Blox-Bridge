@@ -1,46 +1,46 @@
-// Watcher — chokidar watches the project's $path roots. On a file change it
-// pushes the new source into Studio via the plugin (files -> Studio).
+// Per-session file watcher. Each connected project gets its own chokidar
+// watcher that pushes file changes into that place (files -> Studio).
 
 import chokidar, { type FSWatcher } from "chokidar";
 import { readFileSync } from "node:fs";
-import type { Project } from "./project.js";
-import { classFromFilename, scriptNameFromFile } from "./project.js";
+import type { Session } from "../bridge/sessions.js";
+import { classFromFilename } from "./project.js";
 import { wasJustWrittenByServer } from "./loopguard.js";
-import { dispatch, isPluginConnected } from "../bridge/queue.js";
+import { dispatchTo } from "../bridge/sessions.js";
 import { log } from "../util/log.js";
 
-let watcher: FSWatcher | null = null;
+const watchers = new Map<string, FSWatcher>(); // sessionId -> watcher
 
-export function startWatcher(project: Project) {
-  const roots = project.watchRoots();
+export function startWatcherForSession(session: Session) {
+  if (!session.project) return;
+  // one watcher per place; replace any prior for this place
+  stopWatcherForSession(session.sessionId);
+
+  const roots = session.project.watchRoots();
   if (roots.length === 0) {
-    log("no $path roots to watch — files->Studio sync disabled");
+    log(`[${session.placeName}] no $path roots — files->Studio disabled`);
     return;
   }
 
-  watcher = chokidar.watch(roots, {
+  const w = chokidar.watch(roots, {
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
   });
 
-  const onUpsert = (absPath: string) => {
+  const upsert = (absPath: string) => {
     const cls = classFromFilename(absPath);
     if (!cls) return;
-    if (wasJustWrittenByServer(absPath)) return; // our own studio->file write, skip echo
-
-    const studioPath = project.studioPathFor(absPath);
+    if (wasJustWrittenByServer(absPath)) return;
+    const studioPath = session.project!.studioPathFor(absPath);
     if (!studioPath) return;
-    if (!isPluginConnected()) return;
-
     let source = "";
     try {
       source = readFileSync(absPath, "utf8");
     } catch {
       return;
     }
-
-    log(`file -> studio: ${project.relFromAbs(absPath)}`);
-    void dispatch("applyFileChange", {
+    log(`[${session.placeName}] file -> studio: ${session.project!.relFromAbs(absPath)}`);
+    void dispatchTo(session.placeId, "applyFileChange", {
       studioPath,
       className: cls,
       kind: "upsert",
@@ -48,20 +48,23 @@ export function startWatcher(project: Project) {
     }).catch((e) => log(`applyFileChange failed: ${e.message}`));
   };
 
-  const onUnlink = (absPath: string) => {
-    const studioPath = project.studioPathFor(absPath);
-    if (!studioPath || !isPluginConnected()) return;
-    log(`file removed -> studio delete: ${project.relFromAbs(absPath)}`);
-    void dispatch("applyFileChange", { studioPath, kind: "delete" }).catch((e) =>
-      log(`applyFileChange(delete) failed: ${e.message}`),
+  const unlink = (absPath: string) => {
+    const studioPath = session.project!.studioPathFor(absPath);
+    if (!studioPath) return;
+    void dispatchTo(session.placeId, "applyFileChange", { studioPath, kind: "delete" }).catch(
+      (e) => log(`applyFileChange(delete) failed: ${e.message}`),
     );
   };
 
-  watcher.on("add", onUpsert).on("change", onUpsert).on("unlink", onUnlink);
-  log(`watching ${roots.length} root(s) for file changes`);
+  w.on("add", upsert).on("change", upsert).on("unlink", unlink);
+  watchers.set(session.sessionId, w);
+  log(`[${session.placeName}] watching ${roots.length} root(s)`);
 }
 
-export function stopWatcher() {
-  void watcher?.close();
-  watcher = null;
+export function stopWatcherForSession(sessionId: string) {
+  const w = watchers.get(sessionId);
+  if (w) {
+    void w.close();
+    watchers.delete(sessionId);
+  }
 }

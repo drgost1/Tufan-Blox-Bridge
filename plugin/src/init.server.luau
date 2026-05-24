@@ -19,7 +19,7 @@ local ctx = { sessionId = HttpService:GenerateGUID(false) }
 local ui = UI.start(plugin)
 ui.pushActivity("plugin loaded — connecting to server")
 
-local watcher = ScriptWatcher.new(function(msg) ui.pushActivity(msg) end)
+local watcher = ScriptWatcher.new(ctx.sessionId, function(msg) ui.pushActivity(msg) end)
 
 -- Apply (file->Studio) calls this so the watcher doesn't echo server writes back.
 ctx.suppress = function(path) watcher:suppress(path) end

@@ -1,8 +1,14 @@
 // Shared helpers for tool handlers.
 
-import { dispatch } from "../bridge/queue.js";
+import { z } from "zod";
+import { dispatchTo, resolveTargetPlace } from "../bridge/sessions.js";
 
-// Index signature required so this is assignable to the SDK's CallToolResult.
+/** Optional target-place argument shared by every Studio tool. */
+export const placeArg = z
+  .union([z.string(), z.number()])
+  .optional()
+  .describe("Target place (PlaceId or project name). Defaults to the bound/sole connected place.");
+
 export type ToolText = {
   [x: string]: unknown;
   content: { type: "text"; text: string }[];
@@ -17,21 +23,20 @@ export function errorText(s: string): ToolText {
   return { content: [{ type: "text", text: s }], isError: true };
 }
 
-export function json(value: unknown): ToolText {
-  return text(typeof value === "string" ? value : JSON.stringify(value, null, 2));
-}
-
 /**
- * Dispatch an op to the plugin and wrap the result as MCP text content.
- * `format` turns the plugin's raw result into a string.
+ * Dispatch an op to a target Studio place and wrap the result as MCP text.
+ * `place` (optional) is a PlaceId or project name; defaults to the bound/sole place.
  */
 export async function runStudio(
   op: string,
   args: Record<string, unknown>,
   format: (result: any) => string = (r) => (typeof r === "string" ? r : JSON.stringify(r, null, 2)),
+  place?: string | number,
 ): Promise<ToolText> {
+  const target = resolveTargetPlace(place);
+  if (target.error) return errorText(target.error);
   try {
-    const result = await dispatch(op, args);
+    const result = await dispatchTo(target.placeId!, op, args);
     return text(format(result));
   } catch (e) {
     return errorText(`${op} failed: ${(e as Error).message}`);

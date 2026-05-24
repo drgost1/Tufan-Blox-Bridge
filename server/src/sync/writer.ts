@@ -1,8 +1,8 @@
-// Writer — applies a Studio-side script change to the filesystem.
+// Writer — applies a Studio-side script change to the filesystem for a session.
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import type { Project } from "./project.js";
+import type { Session } from "../bridge/sessions.js";
 import { markServerWrite } from "./loopguard.js";
 import { autoCommit } from "../git/git.js";
 import { log } from "../util/log.js";
@@ -12,27 +12,28 @@ export interface WriterOptions {
 }
 
 export function applyStudioChange(
-  project: Project,
+  session: Session,
   studioPath: string,
   source: string,
   opts: WriterOptions,
 ): { written: boolean; relPath?: string } {
-  const absPath = project.fsPathFor(studioPath);
-  if (!absPath) {
-    log(`studio-change for unmapped path "${studioPath}" — ignored`);
+  if (!session.project) {
     return { written: false };
+  }
+  const absPath = session.project.fsPathFor(studioPath);
+  if (!absPath) {
+    return { written: false }; // unmapped path — silently ignore
   }
 
   markServerWrite(absPath);
   mkdirSync(dirname(absPath), { recursive: true });
   writeFileSync(absPath, source, "utf8");
 
-  const relPath = project.relFromAbs(absPath);
-  log(`studio -> file: ${relPath} (${source.length} bytes)`);
+  const relPath = session.project.relFromAbs(absPath);
+  log(`[${session.placeName}] studio -> file: ${relPath}`);
 
   if (opts.autoCommitOnStudioEdit) {
-    void autoCommit(relPath);
+    void autoCommit(session.root, relPath);
   }
-
   return { written: true, relPath };
 }

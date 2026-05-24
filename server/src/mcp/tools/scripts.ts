@@ -1,55 +1,48 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio } from "../helpers.js";
+import { runStudio, placeArg } from "../helpers.js";
 
 export function registerScriptTools(server: McpServer) {
   server.registerTool(
     "get_script_source",
     {
-      description: "Read the Source of a Script/LocalScript/ModuleScript by its full path, e.g. 'ServerScriptService.MusicService'.",
-      inputSchema: { path: z.string().describe("Full dotted instance path to the script") },
+      description: "Read the Source of a Script/LocalScript/ModuleScript by full path, e.g. 'ServerScriptService.MusicService'.",
+      inputSchema: { path: z.string().describe("Full dotted instance path"), place: placeArg },
     },
-    async ({ path }) => runStudio("getScriptSource", { path }, (r) => r.source ?? "(empty)"),
+    async ({ path, place }) => runStudio("getScriptSource", { path }, (r) => r.source ?? "(empty)", place),
   );
 
   server.registerTool(
     "set_script_source",
     {
-      description: "Overwrite the Source of a script at the given path. Creates nothing — the script must exist.",
-      inputSchema: {
-        path: z.string().describe("Full dotted instance path to the script"),
-        source: z.string().describe("New Luau source"),
-      },
+      description: "Overwrite the Source of an existing script at the given path.",
+      inputSchema: { path: z.string(), source: z.string(), place: placeArg },
     },
-    async ({ path, source }) => runStudio("setScriptSource", { path, source }, () => `Updated ${path}`),
+    async ({ path, source, place }) => runStudio("setScriptSource", { path, source }, () => `Updated ${path}`, place),
   );
 
   server.registerTool(
     "grep_scripts",
     {
-      description: "Search the Source of all scripts in the place for a Lua pattern. Returns matching path + line.",
-      inputSchema: {
-        pattern: z.string().describe("Lua string pattern to search for"),
-        ignoreCase: z.boolean().optional(),
-      },
+      description: "Search the Source of all scripts for a Lua pattern. Returns path:line: text.",
+      inputSchema: { pattern: z.string(), ignoreCase: z.boolean().optional(), place: placeArg },
     },
-    async ({ pattern, ignoreCase }) =>
+    async ({ pattern, ignoreCase, place }) =>
       runStudio("grepScripts", { pattern, ignoreCase: ignoreCase ?? false }, (r) =>
         Array.isArray(r?.matches) && r.matches.length
           ? r.matches.map((m: any) => `${m.path}:${m.line}: ${m.text}`).join("\n")
           : "(no matches)",
+        place,
       ),
   );
 
   server.registerTool(
     "get_script_tree",
-    {
-      description: "List every script instance in the place with its class and path.",
-      inputSchema: {},
-    },
-    async () =>
+    { description: "List every script instance with its class and path.", inputSchema: { place: placeArg } },
+    async ({ place }) =>
       runStudio("getScriptTree", {}, (r) =>
         Array.isArray(r?.scripts) ? r.scripts.map((s: any) => `${s.className}  ${s.path}`).join("\n") : "(none)",
+        place,
       ),
   );
 }

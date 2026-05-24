@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio } from "./helpers.js";
+import { runStudio, placeArg } from "./helpers.js";
 import { registerScriptTools } from "./tools/scripts.js";
 import { registerInstanceTools } from "./tools/instances.js";
 import { registerPropertyTools } from "./tools/properties.js";
@@ -10,23 +10,22 @@ import { registerAssetTools } from "./tools/assets.js";
 import { registerCaptureTools } from "./tools/capture.js";
 import { registerPlaytestTools } from "./tools/playtest.js";
 import { registerGitTools } from "./tools/git.js";
+import { registerPlaceTools } from "./tools/places.js";
 
 export function createServer(): McpServer {
-  const server = new McpServer({
-    name: "tufan-blox-bridge",
-    version: "0.1.0",
-  });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.2.0" });
 
-  // Round-trip health check — proves AI -> server -> plugin -> server -> AI.
+  // Round-trip health check.
   server.registerTool(
     "ping",
     {
-      description: "Ping the Studio plugin. Returns pong with the plugin's place name — use to confirm the bridge is live.",
-      inputSchema: {},
+      description: "Ping a connected Studio place. Returns its place name + session.",
+      inputSchema: { place: placeArg },
     },
-    async () => runStudio("ping", {}, (r) => `pong — place="${r?.placeName ?? "?"}" session=${r?.sessionId ?? "?"}`),
+    async ({ place }) => runStudio("ping", {}, (r) => `pong — place="${r?.placeName ?? "?"}" (${r?.placeId ?? "?"}) session=${r?.sessionId ?? "?"}`, place),
   );
 
+  registerPlaceTools(server);
   registerScriptTools(server);
   registerInstanceTools(server);
   registerPropertyTools(server);

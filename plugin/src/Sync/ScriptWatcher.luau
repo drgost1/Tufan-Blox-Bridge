@@ -12,8 +12,9 @@ ScriptWatcher.__index = ScriptWatcher
 
 local DEBOUNCE = 0.3
 
-function ScriptWatcher.new(activity)
+function ScriptWatcher.new(sessionId, activity)
 	return setmetatable({
+		sessionId = sessionId,
 		activity = activity,
 		connections = {},
 		pendingTimers = {},
@@ -33,7 +34,7 @@ function ScriptWatcher:_send(scriptInst)
 	if self.suppressUntil[studioPath] and os.clock() < self.suppressUntil[studioPath] then
 		return
 	end
-	local body = HttpService:JSONEncode({ studioPath = studioPath, source = scriptInst.Source })
+	local body = HttpService:JSONEncode({ sessionId = self.sessionId, studioPath = studioPath, source = scriptInst.Source })
 	local ok = pcall(function()
 		HttpService:RequestAsync({
 			Url = Config.serverUrl .. "/studio-change",

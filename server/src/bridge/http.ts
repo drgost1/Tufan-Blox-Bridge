@@ -1,65 +1,74 @@
-// HTTP bridge — the localhost endpoint the Studio plugin polls.
+// HTTP bridge — the localhost endpoint every Studio plugin polls. Routes by
+// session (one per connected place).
 
 import express from "express";
-import type { Project } from "../sync/project.js";
 import { applyStudioChange, type WriterOptions } from "../sync/writer.js";
 import {
-  nextCommand,
+  onReady,
+  getSession,
+  listSessions,
+  touch,
+  nextCommandFor,
   resolveResponse,
-  setPluginConnected,
-} from "./queue.js";
-import { BRIDGE_PORT, type CommandResponse, type ReadyMessage, type StudioChange } from "./protocol.js";
+} from "./sessions.js";
+import { BRIDGE_PORT } from "./protocol.js";
 import { log } from "../util/log.js";
 
-let lastSessionId: string | null = null;
-let lastSeen = 0;
-
-export function getBridgeStatus() {
-  return { sessionId: lastSessionId, lastSeen };
-}
-
-export function startBridge(project: Project | null, writerOpts: WriterOptions) {
+export function startBridge(writerOpts: WriterOptions) {
   const app = express();
   app.use(express.json({ limit: "25mb" }));
 
   app.post("/ready", (req, res) => {
-    const msg = req.body as ReadyMessage;
-    lastSessionId = msg.sessionId ?? null;
-    lastSeen = Date.now();
-    setPluginConnected(true);
-    log(`plugin ready — session ${msg.sessionId} place "${msg.placeName ?? "?"}"`);
-    res.json({ ok: true });
+    const { sessionId, placeId, gameId, placeName } = req.body ?? {};
+    if (!sessionId || placeId === undefined) {
+      res.status(400).json({ ok: false, error: "missing sessionId/placeId" });
+      return;
+    }
+    const session = onReady({
+      sessionId,
+      placeId: Number(placeId),
+      gameId: gameId !== undefined ? Number(gameId) : undefined,
+      placeName: placeName ?? "Place",
+    });
+    res.json({ ok: true, root: session.root });
   });
 
-  app.get("/poll", async (_req, res) => {
-    lastSeen = Date.now();
-    setPluginConnected(true);
-    const cmd = await nextCommand();
+  app.get("/poll", async (req, res) => {
+    const sessionId = String(req.query.session ?? "");
+    if (!sessionId || !getSession(sessionId)) {
+      // unknown/expired session — tell plugin to re-/ready
+      res.status(409).json({ error: "unknown session; re-ready" });
+      return;
+    }
+    touch(sessionId);
+    const cmd = await nextCommandFor(sessionId);
     if (cmd) res.json(cmd);
     else res.status(204).end();
   });
 
   app.post("/response", (req, res) => {
-    const msg = req.body as CommandResponse;
-    resolveResponse(msg.id, msg.ok, msg.result, msg.error);
+    const { sessionId, id, ok, result, error } = req.body ?? {};
+    if (id) resolveResponse(sessionId, id, !!ok, result, error);
     res.json({ ok: true });
   });
 
   app.post("/studio-change", (req, res) => {
-    const msg = req.body as StudioChange;
-    if (!project) {
-      res.json({ ok: false, error: "no project loaded" });
+    const { sessionId, studioPath, source } = req.body ?? {};
+    let session = sessionId ? getSession(sessionId) : undefined;
+    if (!session) {
+      // fallback: if exactly one place is connected, use it
+      const all = listSessions();
+      if (all.length === 1) session = all[0];
+    }
+    if (!session) {
+      res.json({ ok: false, error: "unknown session" });
       return;
     }
-    const r = applyStudioChange(project, msg.studioPath, msg.source, writerOpts);
+    const r = applyStudioChange(session, studioPath, source, writerOpts);
     res.json({ ok: r.written, relPath: r.relPath });
   });
 
-  // Passive liveness endpoint — used by the plugin's health pill. Does NOT
-  // consume the command queue.
-  app.get("/", (_req, res) => {
-    res.json({ name: "tufan-blox-bridge", ok: true });
-  });
+  app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));
 
   app.listen(BRIDGE_PORT, "127.0.0.1", () => {
     log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);

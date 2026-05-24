@@ -40,6 +40,7 @@ function Poll:_ready()
 			sessionId = self.ctx.sessionId,
 			placeName = game.Name,
 			placeId = game.PlaceId,
+			gameId = game.GameId,
 		})
 	end)
 	self:_setConnected(ok)
@@ -61,6 +62,7 @@ function Poll:_handle(cmd)
 
 	pcall(function()
 		self:_post("/response", {
+			sessionId = self.ctx.sessionId,
 			id = cmd.id,
 			ok = ok,
 			result = ok and result or nil,
@@ -91,6 +93,9 @@ function Poll:_loop()
 			end
 		elseif response.StatusCode == 204 then
 			self:_setConnected(true) -- long-poll timeout, just re-poll
+		elseif response.StatusCode == 409 then
+			-- server restarted / forgot us — re-announce then re-poll
+			self:_ready()
 		else
 			self:_setConnected(false)
 			task.wait(Config.retryDelaySeconds)
