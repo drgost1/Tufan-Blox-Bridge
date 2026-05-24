@@ -96,23 +96,51 @@ export function startBridge(writerOpts: WriterOptions) {
 
   app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));
 
-  const server = app.listen(BRIDGE_PORT, "127.0.0.1", () => {
-    log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);
+  // Let a newer instance ask this one to step down (used for self-healing below).
+  app.post("/shutdown", (_req, res) => {
+    log("received /shutdown — stepping down so a newer instance can take the port");
+    res.json({ ok: true });
+    setTimeout(() => process.exit(0), 100);
   });
 
-  // A stale or duplicate server already holds the port — fail with a clear
-  // message instead of an unhandled crash (common when an old npx instance
-  // lingers or two editors both launch the bridge).
-  server.on("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EADDRINUSE") {
-      log(
-        `port ${BRIDGE_PORT} is already in use — another Tufan-Blox-Bridge ` +
-          `server is likely running. Close it (or kill the process on that ` +
-          `port) and relaunch. Studio is unaffected.`,
-      );
-    } else {
-      log(`bridge server error: ${err.message}`);
-    }
-    process.exit(1);
-  });
+  let takeoverTried = false;
+  const startListening = () => {
+    const server = app.listen(BRIDGE_PORT, "127.0.0.1", () => {
+      log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);
+    });
+
+    server.on("error", async (err: NodeJS.ErrnoException) => {
+      if (err.code !== "EADDRINUSE") {
+        log(`bridge server error: ${err.message}`);
+        process.exit(1);
+      }
+      // Self-heal: if a STALE Tufan bridge holds the port (the #1 reconnect
+      // failure — old npx instance never died), ask it to step down and retry.
+      // Only a tufan bridge is asked; another app's port is left alone.
+      if (!takeoverTried) {
+        takeoverTried = true;
+        if (await askStalePortToStepDown()) {
+          log(`a stale Tufan-Blox-Bridge held ${BRIDGE_PORT}; asked it to exit, retrying...`);
+          setTimeout(startListening, 800);
+          return;
+        }
+        log(`port ${BRIDGE_PORT} is held by a non-Tufan process — close it and relaunch. Studio is unaffected.`);
+      }
+      process.exit(1);
+    });
+  };
+  startListening();
+}
+
+/** If the process on BRIDGE_PORT is itself a Tufan bridge, POST /shutdown to it. */
+async function askStalePortToStepDown(): Promise<boolean> {
+  const base = `http://127.0.0.1:${BRIDGE_PORT}`;
+  try {
+    const who: any = await fetch(`${base}/`, { signal: AbortSignal.timeout(1500) }).then((r) => r.json());
+    if (who?.name !== "tufan-blox-bridge") return false; // someone else's port — don't touch
+    await fetch(`${base}/shutdown`, { method: "POST", signal: AbortSignal.timeout(1500) }).catch(() => {});
+    return true;
+  } catch {
+    return false;
+  }
 }

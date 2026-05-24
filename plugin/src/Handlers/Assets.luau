@@ -19,7 +19,17 @@ return function(register)
 			if recordingId then
 				ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Cancel)
 			end
-			error("LoadAsset failed: " .. tostring(model))
+			local msg = tostring(model)
+			-- Roblox only authorizes LoadAsset for assets the logged-in user OWNS
+			-- (or Roblox-made). Give an actionable message instead of the raw 403.
+			if msg:find("not authorized") or msg:find("not allowed") or msg:find("403") then
+				error(
+					("Asset %d can't be inserted: you don't own it. Take it first "
+						.. "(open it in the Toolbox → Add to Inventory / right-click → Save to Roblox), "
+						.. "then retry. Roblox blocks LoadAsset for assets you don't own."):format(args.assetId)
+				)
+			end
+			error("LoadAsset failed: " .. msg)
 		end
 
 		-- LoadAsset returns a Model wrapper; reparent its children to the target.

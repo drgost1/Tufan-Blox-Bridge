@@ -89,7 +89,8 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "insert_asset",
     {
-      description: "Insert a marketplace asset by id under parentPath (default Workspace). Tip: run scan_backdoors after inserting free models.",
+      description:
+        "Insert a marketplace asset by id under parentPath (default Workspace). NOTE: Roblox's LoadAsset only authorizes assets the logged-in user OWNS (or Roblox-made ones) — most third-party free models will fail unless you first take them (Toolbox → Add to Inventory). Tip: run scan_backdoors after inserting free models.",
       inputSchema: { assetId: z.number(), parentPath: z.string().optional(), place: placeArg },
     },
     async ({ assetId, parentPath, place }) =>

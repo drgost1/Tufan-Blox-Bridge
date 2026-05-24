@@ -8,7 +8,10 @@ export function registerTreeTools(server: McpServer) {
     { description: "Direct children (name + className) of the instance at path.", inputSchema: { path: z.string(), place: placeArg } },
     async ({ path, place }) =>
       runStudio("getChildren", { path }, (r) =>
-        Array.isArray(r?.children) ? r.children.map((c: any) => `${c.className}  ${c.name}`).join("\n") : "(none)",
+        // distinguish "exists but empty" from a resolve failure (m9)
+        Array.isArray(r?.children)
+          ? (r.children.length ? r.children.map((c: any) => `${c.className}  ${c.name}`).join("\n") : "(empty — node exists, 0 children)")
+          : "(could not resolve path)",
         place,
       ),
   );
@@ -25,10 +28,33 @@ export function registerTreeTools(server: McpServer) {
 
   server.registerTool(
     "search_objects",
-    { description: "Find instances by name substring and/or className under rootPath.", inputSchema: { rootPath: z.string().optional(), name: z.string().optional(), className: z.string().optional(), place: placeArg } },
-    async ({ rootPath, name, className, place }) =>
-      runStudio("searchObjects", { rootPath: rootPath ?? "game", name: name ?? null, className: className ?? null }, (r) =>
-        Array.isArray(r?.paths) && r.paths.length ? r.paths.join("\n") : "(no matches)",
+    {
+      description:
+        "Find instances by name and/or className under rootPath. matchMode controls name matching: 'substring' (default), 'exact', 'wholeWord', or 'regex'. Use 'exact'/'wholeWord' to cut the noise that plain substring search produces.",
+      inputSchema: {
+        rootPath: z.string().optional(),
+        name: z.string().optional(),
+        className: z.string().optional(),
+        matchMode: z.enum(["substring", "exact", "wholeWord", "regex"]).optional().describe("name match mode (default substring)"),
+        caseSensitive: z.boolean().optional().describe("default false"),
+        place: placeArg,
+      },
+    },
+    async ({ rootPath, name, className, matchMode, caseSensitive, place }) =>
+      runStudio(
+        "searchObjects",
+        {
+          rootPath: rootPath ?? "game",
+          name: name ?? null,
+          className: className ?? null,
+          matchMode: matchMode ?? "substring",
+          caseSensitive: caseSensitive ?? false,
+        },
+        (r) => {
+          if (!Array.isArray(r?.paths) || !r.paths.length) return "(no matches)";
+          const head = r.truncated ? `(showing first ${r.paths.length}, more exist — narrow the search)\n` : "";
+          return head + r.paths.join("\n");
+        },
         place,
       ),
   );

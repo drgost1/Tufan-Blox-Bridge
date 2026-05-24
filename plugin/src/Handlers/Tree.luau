@@ -31,18 +31,42 @@ return function(register)
 	register("searchObjects", function(args)
 		local root, err = Serialize.resolveParent(args.rootPath)
 		if not root then error(err) end
-		local nameFilter = args.name and string.lower(args.name) or nil
 		local classFilter = args.className
-		local paths = {}
-		for _, d in ipairs(root:GetDescendants()) do
-			local nameOk = (not nameFilter) or string.find(string.lower(d.Name), nameFilter, 1, true)
-			local classOk = (not classFilter) or d:IsA(classFilter)
-			if nameOk and classOk then
-				table.insert(paths, Serialize.uniquePath(d))
-				if #paths >= 500 then break end
+		local rawName = args.name
+		local mode = args.matchMode or "substring"
+		local caseSensitive = args.caseSensitive == true
+
+		-- name matcher honouring matchMode (cuts the noise plain substring gives)
+		local function nameMatches(instName)
+			if not rawName then return true end
+			local n, f = instName, rawName
+			if not caseSensitive then n = string.lower(n); f = string.lower(f) end
+			if mode == "exact" then
+				return n == f
+			elseif mode == "regex" then
+				-- Lua pattern (not PCRE); bad patterns just don't match
+				local ok, found = pcall(string.find, n, f)
+				return ok and found ~= nil
+			elseif mode == "wholeWord" then
+				local escaped = (f:gsub("(%W)", "%%%1")) -- escape pattern specials
+				local ok, found = pcall(string.find, n, "%f[%w]" .. escaped .. "%f[%W]")
+				return ok and found ~= nil
+			else -- substring (default), plain (no pattern) match
+				return string.find(n, f, 1, true) ~= nil
 			end
 		end
-		return { paths = paths }
+
+		local CAP = 200
+		local paths = {}
+		local truncated = false
+		for _, d in ipairs(root:GetDescendants()) do
+			local classOk = (not classFilter) or d:IsA(classFilter)
+			if classOk and nameMatches(d.Name) then
+				table.insert(paths, Serialize.uniquePath(d))
+				if #paths >= CAP then truncated = true; break end
+			end
+		end
+		return { paths = paths, truncated = truncated }
 	end)
 
 	register("getServices", function()

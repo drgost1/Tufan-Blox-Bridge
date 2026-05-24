@@ -46,8 +46,38 @@ export async function commit(root: string, message: string, paths?: string[]): P
 }
 
 export async function log(root: string, count = 20): Promise<string> {
-  const l = await gitFor(root).log({ maxCount: count });
-  return l.all.map((c) => `${c.hash.slice(0, 8)}  ${c.date.slice(0, 19)}  ${c.message}`).join("\n");
+  try {
+    const l = await gitFor(root).log({ maxCount: count });
+    if (!l.all.length) return "(no commits yet)";
+    return l.all.map((c) => `${c.hash.slice(0, 8)}  ${c.date.slice(0, 19)}  ${c.message}`).join("\n");
+  } catch (e) {
+    const msg = (e as Error).message ?? "";
+    // a fresh repo with no HEAD throws — report it cleanly instead of raw git noise
+    if (/does not have any commits|ambiguous argument 'HEAD'|bad default revision/i.test(msg)) {
+      return "(no commits yet)";
+    }
+    throw e;
+  }
+}
+
+/**
+ * Commit the whole working tree if it's dirty, with `message`. Used as a
+ * pre-pull safety net so a re-pull can NEVER overwrite uncommitted local work
+ * (the data-loss bug: untracked mirror files were silently lost on re-pull).
+ * Returns true if it created a commit, false if the tree was already clean.
+ */
+export async function snapshotIfDirty(root: string, message: string): Promise<boolean> {
+  try {
+    const g = gitFor(root);
+    const s = await g.status();
+    if (s.files.length === 0) return false; // clean — nothing to protect
+    await g.add(".");
+    await g.commit(message);
+    logMsg(`snapshot (${s.files.length} change(s)) in ${root}: ${message}`);
+    return true;
+  } catch {
+    return false; // best-effort — never block a pull
+  }
 }
 
 export async function diff(root: string, path?: string): Promise<string> {

@@ -58,12 +58,25 @@ const tests = [
   ["git_log", { count: 3 }],
 ];
 
+// Clean any leftover temp from a previously-interrupted run before starting.
+async function cleanupTemp() {
+  for (const p of ["ReplicatedStorage.TufanAuditTemp", "ReplicatedStorage.TufanAuditRenamed"]) {
+    await call("delete_instance", { path: p });
+  }
+}
+await cleanupTemp();
+
 let pass = 0, fail = 0;
-for (const [name, args] of tests) {
-  const r = await call(name, args);
-  if (r.ok) pass++; else fail++;
-  console.log(`\n## ${name} -> ${r.ok ? "OK" : "FAIL"}`);
-  console.log(r.txt.slice(0, 400));
+try {
+  for (const [name, args] of tests) {
+    const r = await call(name, args);
+    if (r.ok) pass++; else fail++;
+    console.log(`\n## ${name} -> ${r.ok ? "OK" : "FAIL"}`);
+    console.log(r.txt.slice(0, 400));
+  }
+} finally {
+  // Always remove the audit's temp instances, even if a test threw/was interrupted.
+  await cleanupTemp();
 }
 
 console.log(`\n==== ${pass} passed, ${fail} failed ====`);

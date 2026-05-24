@@ -39,4 +39,4 @@ plugin.Unloading:Connect(function()
 	watcher:stop()
 end)
 
-print("[TufanBloxBridge] plugin v0.1.0 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")
+print("[TufanBloxBridge] plugin v0.2.0 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")

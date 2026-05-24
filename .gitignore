@@ -9,6 +9,10 @@ sourcemap.json
 # Keep the built plugin tracked so the installer can fetch it
 !TufanBloxBridge.rbxm
 
+# Plugin builder binary (argon/rojo) — fetched locally, not committed (~10 MB)
+tools/
+
+
 # Editor / OS
 .vscode/
 .idea/

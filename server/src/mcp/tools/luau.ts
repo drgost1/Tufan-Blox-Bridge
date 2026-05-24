@@ -7,7 +7,7 @@ export function registerLuauTools(server: McpServer) {
     "run_luau",
     {
       description:
-        "Execute Luau in the Studio plugin context (edit mode). Captures the return value and printed output. Full plugin API access.",
+        "Execute Luau in the Studio plugin context (EDIT mode — runs against the edit DataModel, not a running playtest's server/client). Captures the return value and printed output. Full plugin API access.",
       inputSchema: { code: z.string().describe("Luau source to run"), place: placeArg },
     },
     async ({ code, place }) =>
