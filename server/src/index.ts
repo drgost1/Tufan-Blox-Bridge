@@ -17,8 +17,8 @@ import { startWatcherForSession, startMirrorWatcher, stopMirrorWatcher } from ".
 import { resolveExperienceName } from "./sync/experience.js";
 import { pullPlace } from "./sync/pull.js";
 import { lockProject, unlockProject } from "./sync/lock.js";
-import { ensureGitRepo } from "./git/git.js";
-import { loadRegistry } from "./registry.js";
+import { ensureGitRepo, baselineCommitIfEmpty, ensureMirrorIgnored } from "./git/git.js";
+import { loadRegistry, validatedBase } from "./registry.js";
 import { log } from "./util/log.js";
 
 async function main() {
@@ -35,8 +35,10 @@ async function main() {
           // experience name from the public API, else fall back to the place name
           const expName = (await resolveExperienceName(session.gameId)) ?? session.placeName;
           session.mirrorRoot = experienceMirrorRoot(expName, session.gameId, session.placeName, session.placeId);
+          ensureMirrorIgnored(validatedBase()); // keep projects/ out of the user's project repo
           await ensureGitRepo(session.mirrorRoot); // per-place repo
           await pullPlace(session); // unlocks + dumps the script tree locally
+          await baselineCommitIfEmpty(session.mirrorRoot); // never leave the mirror at 0 commits
           startMirrorWatcher(session); // file -> Studio for the mirror
           log(`[${session.placeName}] mirror ready: ${session.mirrorRoot}`);
         } catch (e) {

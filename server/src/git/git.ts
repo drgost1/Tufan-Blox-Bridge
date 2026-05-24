@@ -1,8 +1,9 @@
 // Git operations, per project root (cached SimpleGit instances).
 
 import { simpleGit, type SimpleGit } from "simple-git";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { log as logMsg } from "../util/log.js";
 
 const cache = new Map<string, SimpleGit>();
 
@@ -72,6 +73,56 @@ export async function branch(root: string, name?: string): Promise<string> {
 export async function push(root: string): Promise<string> {
   await gitFor(root).push();
   return "pushed to remote";
+}
+
+/**
+ * Make a single baseline commit if the repo has no commits yet. Called right
+ * after the first pull so a freshly-mirrored place is never stuck at 0 commits
+ * (its "free safety net" — the initial Studio state is always recoverable).
+ * Returns true if it created the baseline.
+ */
+export async function baselineCommitIfEmpty(root: string): Promise<boolean> {
+  try {
+    const g = gitFor(root);
+    let empty = false;
+    try {
+      await g.raw(["rev-parse", "--verify", "HEAD"]);
+    } catch {
+      empty = true; // no commits yet
+    }
+    if (!empty) return false;
+    await g.add(".");
+    const res = await g.commit("baseline: initial place mirror");
+    if (res.commit) logMsg(`baseline commit ${res.commit} in ${root}`);
+    return true;
+  } catch {
+    return false; // best-effort — never block the connect flow
+  }
+}
+
+/**
+ * If `baseDir` is itself a git repo, make sure its .gitignore excludes the
+ * mirror folder. Each place under projects/ is its own repo, so committing
+ * them into a parent repo would create embedded-repo (gitlink) pollution.
+ * No-op when baseDir isn't a repo or already ignores it.
+ */
+export function ensureMirrorIgnored(baseDir: string, entry = "projects/"): void {
+  try {
+    if (!existsSync(join(baseDir, ".git"))) return; // parent isn't a repo — nothing to pollute
+    const gi = join(baseDir, ".gitignore");
+    const current = existsSync(gi) ? readFileSync(gi, "utf8") : "";
+    const bare = entry.replace(/\/$/, "");
+    const already = current
+      .split(/\r?\n/)
+      .some((line) => line.trim() === entry || line.trim() === bare);
+    if (already) return;
+    const sep = current.length === 0 || current.endsWith("\n") ? "" : "\n";
+    const block = `${sep}\n# Tufan-Blox-Bridge local mirror (each place is its own git repo)\n${entry}\n`;
+    writeFileSync(gi, current + block, "utf8");
+    logMsg(`added '${entry}' to ${gi}`);
+  } catch {
+    // best-effort
+  }
 }
 
 export async function autoCommit(root: string, relPath: string, alsoPush = false): Promise<void> {
