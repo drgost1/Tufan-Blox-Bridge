@@ -79,7 +79,23 @@ export function startBridge(writerOpts: WriterOptions) {
 
   app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));
 
-  app.listen(BRIDGE_PORT, "127.0.0.1", () => {
+  const server = app.listen(BRIDGE_PORT, "127.0.0.1", () => {
     log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);
+  });
+
+  // A stale or duplicate server already holds the port — fail with a clear
+  // message instead of an unhandled crash (common when an old npx instance
+  // lingers or two editors both launch the bridge).
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      log(
+        `port ${BRIDGE_PORT} is already in use — another Tufan-Blox-Bridge ` +
+          `server is likely running. Close it (or kill the process on that ` +
+          `port) and relaunch. Studio is unaffected.`,
+      );
+    } else {
+      log(`bridge server error: ${err.message}`);
+    }
+    process.exit(1);
   });
 }
