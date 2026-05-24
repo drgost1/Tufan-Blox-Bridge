@@ -7,7 +7,7 @@ return function(register)
 		local inst, err = Serialize.resolve(args.path)
 		if not inst then error(err) end
 		if not inst:IsA("LuaSourceContainer") then error(args.path .. " is not a script") end
-		return { source = inst.Source }
+		return { source = inst.Source, className = inst.ClassName }
 	end)
 
 	register("setScriptSource", function(args)

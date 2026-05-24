@@ -41,7 +41,13 @@ export function registerPlaceTools(server: McpServer) {
       try {
         const read: any = await dispatchTo(from.placeId!, "getScriptSource", { path: sourcePath });
         const target = destPath ?? sourcePath;
-        await dispatchTo(to.placeId!, "setScriptSource", { path: target, source: read.source });
+        // upsert: creates the destination script (and any folders) if missing, else updates it
+        await dispatchTo(to.placeId!, "applyFileChange", {
+          studioPath: target,
+          className: read.className ?? "ModuleScript",
+          kind: "upsert",
+          source: read.source,
+        });
         return text(`Copied ${sourcePath} (place ${from.placeId}) -> ${target} (place ${to.placeId}), ${String(read.source).length} bytes`);
       } catch (e) {
         return errorText(`copy_script_across failed: ${(e as Error).message}`);
