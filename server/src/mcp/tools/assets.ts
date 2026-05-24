@@ -2,28 +2,57 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runStudio, placeArg, text, errorText } from "../helpers.js";
 
-// Catalog search runs server-side (HttpService can't reach roblox.com from a
-// plugin). Best-effort against the public catalog API; insert runs in Studio.
-async function catalogSearch(keyword: string, limit: number): Promise<string> {
-  const url = `https://catalog.roblox.com/v1/search/items/details?Keyword=${encodeURIComponent(keyword)}&Limit=${Math.min(limit, 30)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`catalog API ${res.status}`);
-  const data: any = await res.json();
-  const items = data?.data ?? [];
-  if (!items.length) return "(no results)";
-  return items.map((i: any) => `${i.id}  ${i.name} (${i.itemType ?? "?"})`).join("\n");
+// Roblox toolbox-service: the dev-asset (Model/Decal/Audio/Mesh) marketplace
+// behind Studio's Toolbox. Search returns ids; a batch details call adds names.
+const CATEGORY: Record<string, number> = { Model: 10, Decal: 13, Audio: 3, Mesh: 40, Plugin: 38 };
+
+async function toolboxDetails(ids: number[]): Promise<Map<number, any>> {
+  const out = new Map<number, any>();
+  if (!ids.length) return out;
+  const res = await fetch(`https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=${ids.join(",")}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) return out;
+  const j: any = await res.json();
+  for (const d of j.data ?? []) {
+    const a = d.asset;
+    if (a?.id) out.set(a.id, { ...a, creator: d.creator });
+  }
+  return out;
 }
 
 export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_assets",
     {
-      description: "Search the Roblox marketplace catalog (server-side). Returns id + name.",
-      inputSchema: { keyword: z.string(), limit: z.number().optional() },
+      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name, and flags assets that contain scripts (⚠ possible backdoor vector). Server-side.",
+      inputSchema: {
+        keyword: z.string(),
+        assetType: z.enum(["Model", "Decal", "Audio", "Mesh", "Plugin"]).optional().describe("default Model"),
+        limit: z.number().optional(),
+      },
     },
-    async ({ keyword, limit }) => {
+    async ({ keyword, assetType, limit }) => {
       try {
-        return text(await catalogSearch(keyword, limit ?? 20));
+        const cat = CATEGORY[assetType ?? "Model"] ?? 10;
+        const n = Math.min(limit ?? 15, 30);
+        const sres = await fetch(
+          `https://apis.roblox.com/toolbox-service/v1/marketplace/${cat}?keyword=${encodeURIComponent(keyword)}&limit=${n}&pageNumber=1`,
+          { headers: { Accept: "application/json" } },
+        );
+        if (!sres.ok) return errorText(`search_assets: toolbox search HTTP ${sres.status}`);
+        const sj: any = await sres.json();
+        const ids: number[] = (sj.data ?? []).map((d: any) => d.id).filter(Boolean).slice(0, n);
+        if (!ids.length) return text("(no results)");
+        const details = await toolboxDetails(ids);
+        const lines = ids.map((id) => {
+          const a = details.get(id);
+          if (!a) return `${id}`;
+          const warn = a.hasScripts ? "  ⚠ contains scripts" : "";
+          const by = a.creator?.name ? ` — by ${a.creator.name}` : "";
+          return `${id}  ${a.name}${by}${warn}`;
+        });
+        return text(`${ids.length} result(s) for "${keyword}" (${assetType ?? "Model"}):\n` + lines.join("\n"));
       } catch (e) {
         return errorText(`search_assets failed: ${(e as Error).message}`);
       }
@@ -33,14 +62,24 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "get_asset_details",
     {
-      description: "Get marketplace details for an asset id (server-side).",
+      description: "Marketplace details for an asset id (name, creator, type, whether it contains scripts, mesh stats).",
       inputSchema: { assetId: z.number() },
     },
     async ({ assetId }) => {
       try {
-        const res = await fetch(`https://economy.roblox.com/v2/assets/${assetId}/details`);
-        if (!res.ok) throw new Error(`economy API ${res.status}`);
-        return text(JSON.stringify(await res.json(), null, 2));
+        const details = await toolboxDetails([assetId]);
+        const a = details.get(assetId);
+        if (!a) return errorText(`No details for asset ${assetId} (may be rate-limited or invalid).`);
+        return text(
+          JSON.stringify(
+            {
+              id: a.id, name: a.name, type: a.assetType ?? a.typeId, description: a.description,
+              creator: a.creator?.name, hasScripts: a.hasScripts, createdUtc: a.createdUtc,
+              mesh: a.modelTechnicalDetails?.objectMeshSummary,
+            },
+            null, 2,
+          ),
+        );
       } catch (e) {
         return errorText(`get_asset_details failed: ${(e as Error).message}`);
       }
@@ -50,7 +89,7 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "insert_asset",
     {
-      description: "Insert a marketplace asset by id under parentPath (default Workspace).",
+      description: "Insert a marketplace asset by id under parentPath (default Workspace). Tip: run scan_backdoors after inserting free models.",
       inputSchema: { assetId: z.number(), parentPath: z.string().optional(), place: placeArg },
     },
     async ({ assetId, parentPath, place }) =>
