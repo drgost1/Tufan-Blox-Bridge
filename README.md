@@ -1,75 +1,11 @@
 # Tufan-Blox-Bridge
 
-An original AI-dev tool for Roblox Studio, by **Tufan Studio**. One product:
+AI-driven development for Roblox Studio — full MCP control, two-way file sync, per-place git, and a backdoor scanner. One install. By **Tufan Studio**. MIT.
 
-- **MCP server** — Claude Code / Cursor connect over stdio and get a full toolset to drive Roblox Studio.
-- **Studio plugin** — the in-Studio agent that executes those commands (plugins can't host MCP; they poll the server over HTTP).
-- **File sync** — files→Studio (Rojo-style) and scripts Studio→files.
-- **Git history** — commit/log/diff/restore/branch as MCP tools.
+## Setup
 
-No dependency on Argon or boshyxd's MCP — this is all original code. They were references only.
+**1 — Install the plugin + helper** (run from your Roblox project folder):
 
-## Architecture
-
-```
-Claude Code / Cursor ──stdio(MCP)──▶ SERVER (TypeScript) ──HTTP :58741──▶ PLUGIN (Luau, in Studio)
-                                       │ owns files + git              executes commands, watches scripts
-```
-
-The server runs two transports in one process: stdio for the AI client, and an HTTP long-poll endpoint on `127.0.0.1:58741` for the plugin. An AI tool call becomes a queued command the plugin picks up, executes, and answers.
-
-## Tools (34)
-
-- **Scripts** — get_script_source, set_script_source, grep_scripts, get_script_tree
-- **Instances** — create_instance, delete_instance, clone_instance, move_instance, rename_instance
-- **Properties** — get_properties, set_property, mass_set_property, search_by_property
-- **Tree** — get_children, get_descendants, search_objects, get_services
-- **Luau** — run_luau
-- **Logs** — get_output_log, get_playtest_output
-- **Assets** — search_assets, get_asset_details, insert_asset
-- **Git** — git_status, git_commit, git_log, git_diff, git_restore, git_branch
-- **Capture / Playtest** — capture_screenshot, start_playtest, stop_playtest, is_running
-
-> ⚠️ `capture_screenshot` and `start/stop_playtest` are honest stubs: Roblox provides no plugin API for viewport pixel capture or programmatic play control. They return a clear message rather than fake data. `is_running` works.
-
-## Setup (dev, pre-npm-publish)
-
-**1. Build the server**
-```powershell
-cd server
-bun install
-bun run build
-```
-
-**2. Build + install the plugin**
-```powershell
-pwsh scripts/build-plugin.ps1 -Install
-```
-
-**3. Point your AI client at the server**, with the project root as `TUFAN_PROJECT`:
-```powershell
-claude mcp add tufan --env TUFAN_PROJECT=C:\path\to\your\roblox\project -- node C:\Users\drgos_5ax3dfg\Tufan-Blox-Bridge\server\dist\index.js
-```
-Set `TUFAN_AUTOCOMMIT=1` too if you want every in-Studio script edit auto-committed to git.
-
-**4. Restart Studio + the AI client.** The Tufan toolbar appears; its widget shows a green "connected" pill once the server is reachable.
-
-## File sync
-
-Drop a Rojo/Argon-style `default.project.json` (or `tufan.project.json`) in your project root mapping services to folders:
-```json
-{ "name": "MyGame", "tree": {
-  "ServerScriptService": { "$path": "src/server" },
-  "ReplicatedStorage":   { "$path": "src/shared" }
-}}
-```
-The server watches those folders (files→Studio) and writes Studio script edits back to the matching files (Studio→files), with a loop guard so changes don't ping-pong.
-
-## Install methods (once published to npm)
-
-Pick whichever fits — same spread the popular Roblox tools offer.
-
-**1. One-line installer (easiest).** Run from your Roblox project folder:
 ```powershell
 # Windows (PowerShell)
 iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1 | iex
@@ -78,40 +14,79 @@ iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.sh | bash
 ```
-Installs the plugin + registers the MCP server. Add `-Force` (PS) to overwrite.
 
-**2. MCP server via npx / bunx (no install).** In your AI client config:
-```jsonc
-// Claude Code:  claude mcp add tufan --env TUFAN_PROJECT=<proj> -- npx -y tufan-blox-bridge
-// or with bun:  claude mcp add tufan --env TUFAN_PROJECT=<proj> -- bunx tufan-blox-bridge
-{ "mcpServers": { "tufan": {
-  "command": "npx", "args": ["-y", "tufan-blox-bridge"],
-  "env": { "TUFAN_PROJECT": "C:/path/to/project" }
-}}}
+**2 — Point your AI client at the server** (use **forward slashes** in the path):
+
+```
+claude mcp add tufan --env TUFAN_PROJECT=C:/path/to/your/project -- npx -y tufan-blox-bridge
 ```
 
-**3. Global install.**
-```bash
-npm i -g tufan-blox-bridge     # then: tufan-blox-bridge  (in MCP config: command "tufan-blox-bridge")
-bun  add -g tufan-blox-bridge
-```
+**3 — Restart Studio and your AI client.** A **Tufan Studio** toolbar button appears; open its widget — the pill turns green when connected.
 
-**4. Studio plugin — pick one:**
-- **Roblox Creator Marketplace** — one-click "Install" from the Toolbox (best for non-coders).
-- **GitHub Release** — download `TufanBloxBridge.rbxm`, drop in your Plugins folder.
-- **Build it** — `scripts/build-plugin.ps1 -Install` (needs the Argon CLI as a builder).
+That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_backdoors` is ready.
 
-Env: `TUFAN_PROJECT` = Roblox project root (sync/git), `TUFAN_AUTOCOMMIT=1` = auto-commit in-Studio edits, `TUFAN_PROJECTS_DIR` = base dir for auto-registered multi-projects.
+---
+
+## What it is
+
+Two parts that talk over a local HTTP bridge:
+
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client (Claude Code, Cursor) connects to. Exposes ~46 tools.
+- **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes the commands.
+
+Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + two-way sync + git + security scanning** in one tool, across one or more open places.
+
+## Install methods
+
+- **One-liner** (above) — installs plugin + registers the MCP server.
+- **MCP server, no install:** `npx -y tufan-blox-bridge` or `bunx tufan-blox-bridge` (both verified).
+- **Global:** `npm i -g tufan-blox-bridge` (then command `tufan-blox-bridge`).
+- **Plugin manually:** download `TufanBloxBridge.rbxm` from [Releases](https://github.com/drgost1/Tufan-Blox-Bridge/releases) → drop in your Roblox Plugins folder; or build it with `pwsh scripts/build-plugin.ps1 -Install`.
+
+## Tools (~46)
+
+- **Scripts** — get/set source, grep, script tree, project-wide find-and-replace
+- **Instances** — create / delete / clone / move / rename
+- **Properties & attributes** — get/set, mass-set, search-by-value, get/set attribute
+- **Tags** — get / add / remove / get-tagged (CollectionService)
+- **Tree** — children, descendants, search, services, selection
+- **Luau** — `run_luau` (captures return + prints)
+- **Logs** — output / playtest output
+- **Assets** — search, details, insert (flags script-bearing models)
+- **Git** — status / commit / log / diff / restore / branch
+- **Security** — 🛡️ `scan_backdoors` (require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, hidden binary attributes/Values)
+- **Multi-place** — `list_places`, `copy_script_across`, `pull_place`
+- *(stubs — no Roblox plugin API: `capture_screenshot`, `start_playtest`, `stop_playtest`)*
+
+## How it works
+
+- **Auto-mirror on connect** — opening a published place pulls its script tree to
+  `<project>/projects/<Experience>_<universeId>/<Place>_<placeId>/`.
+- **Two-way sync** — edit a local file → Studio updates; edit in Studio → the file updates.
+- **Git per place** — each place folder is its own git repo. The widget has **Auto-commit** / **Auto-push** toggles.
+- **Disconnect lock** — when the plugin goes offline, the mirror is set read-only (copy-only) until it reconnects.
+- **Cross-place** — with two places open, `copy_script_across` moves a module from one into the other.
+
+## Config (env)
+
+- `TUFAN_PROJECT` — project root for sync/git (use forward slashes). Defaults to cwd.
+- `TUFAN_AUTOCOMMIT=1` — auto-commit each Studio→file edit.
+- `TUFAN_AUTOPUSH=1` — also push after commit.
+- `TUFAN_PROJECTS_DIR` — base dir override for auto-registered projects.
+
+## Status
+
+Solid + tested: AI tools, script sync, git, the scanner, multi-place. **WIP:** non-script instance mirroring (models/parts as files — geometry stays in Studio by reference, a Roblox plugin limit), and UUID-suffixing for same-named sibling scripts (they currently collapse).
 
 ## Repo
 
 ```
-server/   TypeScript MCP server (publishable as tufan-blox-bridge)
+server/   TypeScript MCP server (published as npm `tufan-blox-bridge`)
 plugin/   Luau Studio plugin (built to TufanBloxBridge.rbxm)
 scripts/  build-plugin.ps1
+docs/     launch notes
 ```
-
-The previous vendoring approach (wrapping Argon + boshyxd) is archived on the `legacy-vendor` branch.
+Previous vendoring approach archived on the `legacy-vendor` branch.
 
 ## License
 
