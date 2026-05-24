@@ -1,9 +1,10 @@
-# Build output
+# Build output — TufanBloxBridge.rbxm IS tracked so the installer can fetch it
+# from main branch as a fallback when no GitHub Release exists.
 *.rbxm
 *.rbxmx
 !src/vendor/**/*.rbxm
 !src/vendor/**/*.rbxmx
-TufanBloxBridge.rbxm
+!TufanBloxBridge.rbxm
 
 # Argon temp / sourcemap
 sourcemap.json

@@ -1,5 +1,20 @@
 # Tufan-Blox-Bridge
 
+## One-line install (Windows, PowerShell)
+
+```powershell
+iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1 | iex
+```
+
+Installs:
+- `TufanBloxBridge.rbxm` into `%LOCALAPPDATA%\Roblox\Plugins\`
+- Argon CLI into `~/.tufan-bridge/bin` (adds to PATH)
+- Patches your Claude Code MCP config (if found) to start `robloxstudio-mcp` on launch
+
+Then in your Roblox project folder: `argon init && argon serve`, restart Studio, restart Claude Code.
+
+---
+
 One Roblox Studio plugin that combines:
 
 1. **[Argon](https://github.com/argon-rbx/argon-roblox)** — two-way sync between filesystem and Studio (via the Argon CLI on port `34872`)
