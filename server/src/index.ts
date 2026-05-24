@@ -12,10 +12,12 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp/server.js";
 import { startBridge } from "./bridge/http.js";
-import { setOnSessionConnect, startHeartbeat } from "./bridge/sessions.js";
+import { setOnSessionConnect, startHeartbeat, experienceMirrorRoot } from "./bridge/sessions.js";
 import { startWatcherForSession, startMirrorWatcher, stopMirrorWatcher } from "./sync/watcher.js";
+import { resolveExperienceName } from "./sync/experience.js";
 import { pullPlace } from "./sync/pull.js";
 import { lockProject, unlockProject } from "./sync/lock.js";
+import { ensureGitRepo } from "./git/git.js";
 import { loadRegistry } from "./registry.js";
 import { log } from "./util/log.js";
 
@@ -23,16 +25,22 @@ async function main() {
   loadRegistry();
   if (process.env.TUFAN_PROJECT) log(`primary project: ${process.env.TUFAN_PROJECT}`);
 
-  // On connect: legacy project.json sync (if any) + auto-mirror the place tree.
+  // On connect: legacy project.json sync (if any) + auto-mirror the place tree
+  // under projects/<Experience>_<universeId>/<Place>_<placeId>/ (its own git repo).
   setOnSessionConnect((session) => {
     startWatcherForSession(session);
-    if (session.mirrorRoot) {
+    if (session.placeId && session.placeId !== 0) {
       void (async () => {
         try {
+          // experience name from the public API, else fall back to the place name
+          const expName = (await resolveExperienceName(session.gameId)) ?? session.placeName;
+          session.mirrorRoot = experienceMirrorRoot(expName, session.gameId, session.placeName, session.placeId);
+          await ensureGitRepo(session.mirrorRoot); // per-place repo
           await pullPlace(session); // unlocks + dumps the script tree locally
           startMirrorWatcher(session); // file -> Studio for the mirror
+          log(`[${session.placeName}] mirror ready: ${session.mirrorRoot}`);
         } catch (e) {
-          log(`auto-pull failed: ${(e as Error).message}`);
+          log(`auto-mirror failed: ${(e as Error).message}`);
         }
       })();
     }

@@ -5,7 +5,7 @@
 // This backs the "open a place -> its tree appears locally" model. Scripts are
 // written as editable source; non-script instance structure is a later slice.
 
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname, relative, sep } from "node:path";
 import { markServerWrite } from "./loopguard.js";
 
@@ -58,6 +58,24 @@ export function writeMirrorScript(
   mkdirSync(dirname(lp), { recursive: true });
   writeFileSync(lp, source, "utf8");
   return p;
+}
+
+/** Write a live Studio edit to the mirror, preferring an existing file path
+ *  (init-style if the script is a folder-script, else leaf). */
+export function writeMirrorScriptLive(
+  projectRoot: string,
+  studioPath: string,
+  className: string,
+  source: string,
+): string {
+  const initPath = mirrorFilePath(projectRoot, studioPath, className, true);
+  const leafPath = mirrorFilePath(projectRoot, studioPath, className, false);
+  const target = existsSync(longPath(initPath)) ? initPath : leafPath;
+  markServerWrite(target);
+  const lp = longPath(target);
+  mkdirSync(dirname(lp), { recursive: true });
+  writeFileSync(lp, source, "utf8");
+  return target;
 }
 
 const CLASS_BY_EXT: { suffix: string; className: string }[] = [

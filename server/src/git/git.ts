@@ -1,6 +1,8 @@
 // Git operations, per project root (cached SimpleGit instances).
 
 import { simpleGit, type SimpleGit } from "simple-git";
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 const cache = new Map<string, SimpleGit>();
 
@@ -11,6 +13,18 @@ function gitFor(root: string): SimpleGit {
     cache.set(root, g);
   }
   return g;
+}
+
+/** Make `root` a git repo if it isn't one yet (each place folder = its own repo). */
+export async function ensureGitRepo(root: string): Promise<void> {
+  mkdirSync(root, { recursive: true });
+  if (!existsSync(join(root, ".git"))) {
+    try {
+      await gitFor(root).init();
+    } catch {
+      // best-effort
+    }
+  }
 }
 
 export async function status(root: string): Promise<string> {

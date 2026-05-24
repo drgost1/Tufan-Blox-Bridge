@@ -9,15 +9,22 @@ import { Project } from "../sync/project.js";
 import { resolveProjectForPlace, getPlaceIdByName, validatedBase } from "../registry.js";
 import { log } from "../util/log.js";
 
-/** Filesystem-safe, readable folder label from a place name. */
+/** Filesystem-safe, readable folder label. */
 export function sanitizeName(name: string): string {
   return name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "Place";
 }
 
-/** Local mirror folder for a published place: <base>/projects/<name>_<placeId>. */
-function mirrorRootFor(placeId: number, placeName: string): string | undefined {
-  if (!placeId || placeId === 0) return undefined; // only published places
-  return join(validatedBase(), "projects", `${sanitizeName(placeName)}_${placeId}`);
+/** Experience-grouped, per-place mirror folder:
+ *  <base>/projects/<Experience>_<universeId>/<Place>_<placeId>/ */
+export function experienceMirrorRoot(
+  expName: string,
+  universeId: number | undefined,
+  placeName: string,
+  placeId: number,
+): string {
+  const exp = `${sanitizeName(expName)}_${universeId ?? "0"}`;
+  const place = `${sanitizeName(placeName)}_${placeId}`;
+  return join(validatedBase(), "projects", exp, place);
 }
 
 interface Pending {
@@ -74,7 +81,7 @@ export function onReady(info: ReadyInfo): Session {
     gameId: info.gameId,
     placeName: info.placeName,
     root: entry.root,
-    mirrorRoot: mirrorRootFor(info.placeId, info.placeName),
+    mirrorRoot: undefined, // set by the connect handler once the experience name resolves
     project,
     queue: [],
     waiters: [],
@@ -86,7 +93,6 @@ export function onReady(info: ReadyInfo): Session {
   session.gameId = info.gameId;
   session.placeName = info.placeName;
   session.root = entry.root;
-  session.mirrorRoot = mirrorRootFor(info.placeId, info.placeName);
   session.project = project;
   session.lastSeen = Date.now();
   session.connected = true;

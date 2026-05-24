@@ -15,7 +15,8 @@ function rootFor(place?: string | number): { root?: string; error?: string } {
   if (t.error) return { error: t.error };
   const s = getSessionByPlace(t.placeId!);
   if (!s) return { error: `Place ${t.placeId} not connected.` };
-  return { root: s.root };
+  // git operates on the per-place mirror repo (falls back to legacy root)
+  return { root: s.mirrorRoot ?? s.root };
 }
 
 async function withRoot(place: string | number | undefined, fn: (root: string) => Promise<string>) {
