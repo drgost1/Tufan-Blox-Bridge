@@ -6,8 +6,13 @@
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
+-- IMPORTANT: probe passive endpoints only. The MCP server's /poll endpoint is
+-- its command-dispatch queue — polling it here would consume tool-call requests
+-- meant for the real MCP plugin and make Claude Code's tool calls time out.
+-- A bare GET to the server root returns 404 but proves the server is alive
+-- without touching the queue.
 local ARGON_URL = "http://127.0.0.1:34872/details"
-local MCP_URL = "http://127.0.0.1:58741/poll?instanceId=tufan-bridge-healthcheck"
+local MCP_URL = "http://127.0.0.1:58741/"
 local INTERVAL = 5
 
 local HealthCheck = {}
