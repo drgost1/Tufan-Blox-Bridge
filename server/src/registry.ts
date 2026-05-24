@@ -3,8 +3,19 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { log } from "./util/log.js";
+
+/** Normalize a filesystem path for robust comparison (absolute, no trailing
+ *  separator, case-insensitive — Windows paths are case-insensitive and may
+ *  arrive with mixed / and \\ separators). */
+function normRoot(p: string): string {
+  try {
+    return resolve(p).replace(/[\\/]+$/, "").toLowerCase();
+  } catch {
+    return p.replace(/[\\/]+$/, "").toLowerCase();
+  }
+}
 
 export interface ProjectEntry {
   name: string;
@@ -49,9 +60,9 @@ export function getByPlaceId(placeId: number | string): ProjectEntry | undefined
 }
 
 export function getPlaceIdByRoot(root: string): string | undefined {
-  const norm = root.replace(/[\\/]+$/, "");
+  const norm = normRoot(root);
   for (const [placeId, entry] of Object.entries(registry)) {
-    if (entry.root.replace(/[\\/]+$/, "") === norm) return placeId;
+    if (normRoot(entry.root) === norm) return placeId;
   }
   return undefined;
 }
@@ -65,9 +76,11 @@ export function getPlaceIdByName(name: string): string | undefined {
 }
 
 export function register(placeId: number | string, entry: ProjectEntry) {
-  registry[String(placeId)] = entry;
+  // Store a clean absolute path so the file never holds mangled separators.
+  const clean: ProjectEntry = { ...entry, root: resolve(entry.root) };
+  registry[String(placeId)] = clean;
   save();
-  log(`registry: bound place ${placeId} ("${entry.name}") -> ${entry.root}`);
+  log(`registry: bound place ${placeId} ("${clean.name}") -> ${clean.root}`);
 }
 
 /**
