@@ -43,7 +43,15 @@ say "Registering MCP server with Claude Code"
 if command -v claude >/dev/null 2>&1; then
   claude mcp remove tufan >/dev/null 2>&1 || true
   claude mcp add tufan --env "TUFAN_PROJECT=$PROJECT_ROOT" -- npx -y tufan-blox-bridge >/dev/null 2>&1
-  ok "Registered: npx -y tufan-blox-bridge (TUFAN_PROJECT=$PROJECT_ROOT)"
+  # Verify the package name landed — a dropped arg = silent 30s timeout later.
+  if claude mcp get tufan 2>&1 | grep -q "tufan-blox-bridge"; then
+    ok "Registered + verified: npx -y tufan-blox-bridge (TUFAN_PROJECT=$PROJECT_ROOT)"
+  else
+    warn "MCP entry malformed (package name didn't register). Fix manually:"
+    echo "    claude mcp remove tufan"
+    echo "    claude mcp add tufan --env TUFAN_PROJECT=$PROJECT_ROOT -- npx -y tufan-blox-bridge"
+    echo "    (confirm: claude mcp get tufan — Args must include tufan-blox-bridge)"
+  fi
 else
   warn "Claude Code CLI not found. Add manually:"
   echo "    claude mcp add tufan --env TUFAN_PROJECT=$PROJECT_ROOT -- npx -y tufan-blox-bridge"

@@ -25,6 +25,8 @@ claude mcp add tufan --env TUFAN_PROJECT=C:/path/to/your/project -- npx -y tufan
 
 That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_backdoors` is ready.
 
+> **`tufan` times out / won't connect?** Run `claude mcp get tufan` and check **Args is `-y tufan-blox-bridge`** (not just `-y`). If the package name is missing, the `add` dropped an argument — `claude mcp remove tufan`, then re-run the add above. The installer auto-verifies this.
+
 ---
 
 ## What it is

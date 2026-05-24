@@ -62,7 +62,18 @@ if ($claude) {
   } else {
     if ($exists) { & claude mcp remove tufan 2>$null | Out-Null }
     & claude mcp add tufan --env "TUFAN_PROJECT=$ProjectRoot" -- npx -y tufan-blox-bridge 2>&1 | Out-Null
-    Ok "Registered: npx -y tufan-blox-bridge  (TUFAN_PROJECT=$ProjectRoot)"
+    # Verify the package name actually landed in the config — a dropped arg
+    # produces a silent 30s timeout later, so fail loudly here instead.
+    $verify = (& claude mcp get tufan 2>&1 | Out-String)
+    if ($verify -match 'tufan-blox-bridge') {
+      Ok "Registered + verified: npx -y tufan-blox-bridge  (TUFAN_PROJECT=$ProjectRoot)"
+    } else {
+      Write-Host "  [X] MCP entry is malformed (the package name didn't register)." -ForegroundColor Red
+      Write-Host "      Fix manually:" -ForegroundColor Red
+      Write-Host "        claude mcp remove tufan" -ForegroundColor DarkGray
+      Write-Host "        claude mcp add tufan --env TUFAN_PROJECT=$ProjectRoot -- npx -y tufan-blox-bridge" -ForegroundColor DarkGray
+      Write-Host "      Then confirm with: claude mcp get tufan  (Args must include tufan-blox-bridge)" -ForegroundColor DarkGray
+    }
   }
 } else {
   Warn2 "Claude Code CLI not found. Add this MCP server manually:"
