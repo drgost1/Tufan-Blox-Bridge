@@ -65,12 +65,43 @@ Drop a Rojo/Argon-style `default.project.json` (or `tufan.project.json`) in your
 ```
 The server watches those folders (files→Studio) and writes Studio script edits back to the matching files (Studio→files), with a loop guard so changes don't ping-pong.
 
-## Once published
+## Install methods (once published to npm)
 
+Pick whichever fits — same spread the popular Roblox tools offer.
+
+**1. One-line installer (easiest).** Run from your Roblox project folder:
 ```powershell
+# Windows (PowerShell)
 iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1 | iex
 ```
-and the AI-client config becomes `npx -y tufan-blox-bridge`.
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.sh | bash
+```
+Installs the plugin + registers the MCP server. Add `-Force` (PS) to overwrite.
+
+**2. MCP server via npx / bunx (no install).** In your AI client config:
+```jsonc
+// Claude Code:  claude mcp add tufan --env TUFAN_PROJECT=<proj> -- npx -y tufan-blox-bridge
+// or with bun:  claude mcp add tufan --env TUFAN_PROJECT=<proj> -- bunx tufan-blox-bridge
+{ "mcpServers": { "tufan": {
+  "command": "npx", "args": ["-y", "tufan-blox-bridge"],
+  "env": { "TUFAN_PROJECT": "C:/path/to/project" }
+}}}
+```
+
+**3. Global install.**
+```bash
+npm i -g tufan-blox-bridge     # then: tufan-blox-bridge  (in MCP config: command "tufan-blox-bridge")
+bun  add -g tufan-blox-bridge
+```
+
+**4. Studio plugin — pick one:**
+- **Roblox Creator Marketplace** — one-click "Install" from the Toolbox (best for non-coders).
+- **GitHub Release** — download `TufanBloxBridge.rbxm`, drop in your Plugins folder.
+- **Build it** — `scripts/build-plugin.ps1 -Install` (needs the Argon CLI as a builder).
+
+Env: `TUFAN_PROJECT` = Roblox project root (sync/git), `TUFAN_AUTOCOMMIT=1` = auto-commit in-Studio edits, `TUFAN_PROJECTS_DIR` = base dir for auto-registered multi-projects.
 
 ## Repo
 
