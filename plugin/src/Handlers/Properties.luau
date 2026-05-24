@@ -75,7 +75,7 @@ return function(register)
 		for _, d in ipairs(root:GetDescendants()) do
 			local ok, value = pcall(function() return d[args.name] end)
 			if ok and value == want then
-				table.insert(paths, d:GetFullName())
+				table.insert(paths, Serialize.uniquePath(d))
 				if #paths >= 500 then break end
 			end
 		end

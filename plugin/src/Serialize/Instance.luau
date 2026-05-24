@@ -3,8 +3,60 @@
 
 local Serialize = {}
 
+-- Same-named siblings collide on GetFullName(), so we disambiguate with a
+-- " (N)" suffix where N is the 1-based index among same-named children (the
+-- first keeps the bare name). e.g. Hawk_FlightPath01, Hawk_FlightPath01 (2)...
+
+-- 1-based index of `inst` among siblings sharing its name; nil if it's unique.
+local function siblingIndex(inst: Instance): number?
+	local parent = inst.Parent
+	if not parent then return nil end
+	local count, idx = 0, 0
+	for _, c in ipairs(parent:GetChildren()) do
+		if c.Name == inst.Name then
+			count += 1
+			if c == inst then idx = count end
+		end
+	end
+	return count > 1 and idx or nil
+end
+
+-- Find a child by a (possibly disambiguated) segment: "Name" -> FindFirstChild;
+-- "Name (N)" -> the Nth child named "Name".
+local function findChild(parent: Instance, segment: string): Instance?
+	local base, num = string.match(segment, "^(.*) %((%d+)%)$")
+	if base then
+		local n = tonumber(num)
+		local count = 0
+		for _, c in ipairs(parent:GetChildren()) do
+			if c.Name == base then
+				count += 1
+				if count == n then return c end
+			end
+		end
+		return nil
+	end
+	return parent:FindFirstChild(segment)
+end
+
+-- GetFullName-style path with " (N)" disambiguators for duplicate siblings.
+function Serialize.uniquePath(inst: Instance): string
+	local segs = {}
+	local cur: Instance? = inst
+	while cur and cur ~= game do
+		local name = cur.Name
+		local i = siblingIndex(cur)
+		if i and i > 1 then
+			name = name .. " (" .. i .. ")"
+		end
+		table.insert(segs, 1, name)
+		cur = cur.Parent
+	end
+	return table.concat(segs, ".")
+end
+
 -- Resolve a dotted path like "ServerScriptService.MusicService" or
--- "game.Workspace.Part" or "Workspace.Part" to an Instance. Returns nil + err.
+-- "game.Workspace.Part" or "Workspace.Birds.Hawk_FlightPath01 (3).Script".
 function Serialize.resolve(path: string): (Instance?, string?)
 	if path == nil or path == "" then
 		return nil, "empty path"
@@ -31,10 +83,9 @@ function Serialize.resolve(path: string): (Instance?, string?)
 	end
 
 	for i = startIndex, #segments do
-		local name = segments[i]
-		local child = current:FindFirstChild(name)
+		local child = findChild(current, segments[i])
 		if not child then
-			return nil, string.format("'%s' not found under '%s'", name, current:GetFullName())
+			return nil, string.format("'%s' not found under '%s'", segments[i], current:GetFullName())
 		end
 		current = child
 	end

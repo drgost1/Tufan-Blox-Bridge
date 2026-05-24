@@ -40,7 +40,7 @@ return function(register)
 						local hay = ignoreCase and string.lower(line) or line
 						local needle = ignoreCase and string.lower(pattern) or pattern
 						if string.find(hay, needle) then
-							table.insert(matches, { path = d:GetFullName(), line = lineNo, text = line })
+							table.insert(matches, { path = Serialize.uniquePath(d), line = lineNo, text = line })
 							if #matches >= 500 then return { matches = matches } end
 						end
 					end
@@ -54,7 +54,7 @@ return function(register)
 		local scripts = {}
 		for _, d in ipairs(game:GetDescendants()) do
 			if d:IsA("LuaSourceContainer") then
-				table.insert(scripts, { className = d.ClassName, path = d:GetFullName() })
+				table.insert(scripts, { className = d.ClassName, path = Serialize.uniquePath(d) })
 			end
 		end
 		return { scripts = scripts }
@@ -72,7 +72,7 @@ return function(register)
 				end
 				local ok, src = pcall(function() return d.Source end)
 				if ok then
-					table.insert(scripts, { studioPath = d:GetFullName(), className = d.ClassName, source = src })
+					table.insert(scripts, { studioPath = Serialize.uniquePath(d), className = d.ClassName, source = src })
 				end
 			end
 		end
@@ -91,7 +91,7 @@ return function(register)
 				if ok and src and string.find(src, find, 1, true) then
 					-- plain (non-pattern) replace
 					local newSrc, count = src:gsub(find:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%1"), (replace:gsub("%%", "%%%%")))
-					table.insert(edits, { path = d:GetFullName(), count = count })
+					table.insert(edits, { path = Serialize.uniquePath(d), count = count })
 					if not dryRun then
 						local setOk = pcall(function()
 							ScriptEditorService:UpdateSourceAsync(d, function() return newSrc end)

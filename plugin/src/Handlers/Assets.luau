@@ -36,6 +36,6 @@ return function(register)
 		if recordingId then
 			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
 		end
-		return { path = inserted:GetFullName() }
+		return { path = Serialize.uniquePath(inserted) }
 	end)
 end

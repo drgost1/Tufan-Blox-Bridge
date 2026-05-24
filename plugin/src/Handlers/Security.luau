@@ -85,29 +85,29 @@ return function(register)
 						-- precise require-of-Value: require(<expr>.Value)
 						for call in line:gmatch("require%s*%b()") do
 							if call:find("%.Value%s*%)$") then
-								add("script", "high", "require-of-Value (classic backdoor)", d:GetFullName(), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
+								add("script", "high", "require-of-Value (classic backdoor)", Serialize.uniquePath(d), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
 							elseif call:find("^require%s*%(%s*%d%d%d%d%d%d+") then
-								add("script", "medium", "require by asset id (remote module)", d:GetFullName(), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
+								add("script", "medium", "require by asset id (remote module)", Serialize.uniquePath(d), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
 							end
 						end
 
 						-- presence signatures
 						for _, sig in ipairs(LINE_SIGS) do
 							if string.find(line, sig[1]) then
-								add("script", sig[2], sig[3], d:GetFullName(), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
+								add("script", sig[2], sig[3], Serialize.uniquePath(d), "line " .. lineNo, line:gsub("^%s+", ""):sub(1, 120))
 							end
 						end
 
 						-- obfuscation: long string.char chain
 						if line:find("string%.char%(%s*%d+[%s,]+%d+[%s,]+%d+[%s,]+%d+[%s,]+%d+") then
-							add("script", "medium", "long string.char chain (obfuscation)", d:GetFullName(), "line " .. lineNo, line:sub(1, 80))
+							add("script", "medium", "long string.char chain (obfuscation)", Serialize.uniquePath(d), "line " .. lineNo, line:sub(1, 80))
 						end
 						-- obfuscation: long base64-ish blob, scored by entropy
 						for blob in line:gmatch("[%w+/=]+") do
 							if #blob >= 120 then
 								local e = entropy(blob)
 								if e > 4.3 then
-									add("script", "high", string.format("high-entropy blob (%.1f bits, likely encrypted payload)", e), d:GetFullName(), "line " .. lineNo, blob:sub(1, 60) .. "...")
+									add("script", "high", string.format("high-entropy blob (%.1f bits, likely encrypted payload)", e), Serialize.uniquePath(d), "line " .. lineNo, blob:sub(1, 60) .. "...")
 								end
 							end
 						end
@@ -124,12 +124,12 @@ return function(register)
 				for name, val in pairs(attrs) do
 					if type(val) == "string" then
 						if utf8.len(val) == nil then
-							add("attribute", "high", "binary/invalid-UTF8 attribute (hidden payload)", d:GetFullName(), "@" .. name .. " (" .. #val .. " bytes)", nil)
+							add("attribute", "high", "binary/invalid-UTF8 attribute (hidden payload)", Serialize.uniquePath(d), "@" .. name .. " (" .. #val .. " bytes)", nil)
 						elseif name:match("^__") and #val >= 80 then
-							add("attribute", "low", "hidden (__) attribute with data", d:GetFullName(), "@" .. name .. " (" .. #val .. " bytes)", nil)
+							add("attribute", "low", "hidden (__) attribute with data", Serialize.uniquePath(d), "@" .. name .. " (" .. #val .. " bytes)", nil)
 						end
 					elseif type(val) == "number" and val >= 100000000 and name:match("^__") then
-						add("attribute", "medium", "hidden numeric attribute (possible asset id)", d:GetFullName(), "@" .. name .. " = " .. tostring(val), nil)
+						add("attribute", "medium", "hidden numeric attribute (possible asset id)", Serialize.uniquePath(d), "@" .. name .. " = " .. tostring(val), nil)
 					end
 				end
 			end
@@ -139,7 +139,7 @@ return function(register)
 			if d:IsA("StringValue") then
 				local okV, v = pcall(function() return d.Value end)
 				if okV and type(v) == "string" and #v >= 64 and utf8.len(v) == nil then
-					add("value", "high", "StringValue holds a binary blob (possible payload)", d:GetFullName(), #v .. " bytes", nil)
+					add("value", "high", "StringValue holds a binary blob (possible payload)", Serialize.uniquePath(d), #v .. " bytes", nil)
 				end
 			end
 

@@ -26,7 +26,7 @@ return function(register)
 	register("getTagged", function(args)
 		local paths = {}
 		for _, inst in ipairs(CollectionService:GetTagged(args.tag)) do
-			table.insert(paths, inst:GetFullName())
+			table.insert(paths, Serialize.uniquePath(inst))
 		end
 		return { paths = paths }
 	end)

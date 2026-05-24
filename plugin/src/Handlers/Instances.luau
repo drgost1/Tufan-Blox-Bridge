@@ -25,7 +25,7 @@ return function(register)
 				end
 			end
 			inst.Parent = parent
-			return { path = inst:GetFullName() }
+			return { path = Serialize.uniquePath(inst) }
 		end)
 	end)
 
@@ -50,7 +50,7 @@ return function(register)
 				parent = p
 			end
 			clone.Parent = parent
-			return { path = clone:GetFullName() }
+			return { path = Serialize.uniquePath(clone) }
 		end)
 	end)
 
@@ -61,7 +61,7 @@ return function(register)
 			local parent, perr = Serialize.resolveParent(args.newParentPath)
 			if not parent then error(perr) end
 			inst.Parent = parent
-			return { path = inst:GetFullName() }
+			return { path = Serialize.uniquePath(inst) }
 		end)
 	end)
 
@@ -70,7 +70,7 @@ return function(register)
 			local inst, err = Serialize.resolve(args.path)
 			if not inst then error(err) end
 			inst.Name = args.newName
-			return { path = inst:GetFullName() }
+			return { path = Serialize.uniquePath(inst) }
 		end)
 	end)
 end

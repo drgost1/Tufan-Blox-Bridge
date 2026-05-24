@@ -17,11 +17,11 @@ return function(register)
 		if not inst then error(err) end
 		local maxDepth = args.maxDepth or 5
 		local out = {}
-		local rootDepth = #string.split(inst:GetFullName(), ".")
+		local rootDepth = #string.split(Serialize.uniquePath(inst), ".")
 		for _, d in ipairs(inst:GetDescendants()) do
-			local depth = #string.split(d:GetFullName(), ".") - rootDepth
+			local depth = #string.split(Serialize.uniquePath(d), ".") - rootDepth
 			if depth <= maxDepth then
-				table.insert(out, { path = d:GetFullName(), className = d.ClassName, depth = depth })
+				table.insert(out, { path = Serialize.uniquePath(d), className = d.ClassName, depth = depth })
 				if #out >= 2000 then break end
 			end
 		end
@@ -38,7 +38,7 @@ return function(register)
 			local nameOk = (not nameFilter) or string.find(string.lower(d.Name), nameFilter, 1, true)
 			local classOk = (not classFilter) or d:IsA(classFilter)
 			if nameOk and classOk then
-				table.insert(paths, d:GetFullName())
+				table.insert(paths, Serialize.uniquePath(d))
 				if #paths >= 500 then break end
 			end
 		end

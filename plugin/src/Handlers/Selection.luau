@@ -1,17 +1,17 @@
 --!nocheck
 local Selection = game:GetService("Selection")
+local Serialize = require(script.Parent.Parent.Serialize.Instance)
 
 return function(register)
 	register("getSelection", function()
 		local paths = {}
 		for _, inst in ipairs(Selection:Get()) do
-			table.insert(paths, { path = inst:GetFullName(), className = inst.ClassName })
+			table.insert(paths, { path = Serialize.uniquePath(inst), className = inst.ClassName })
 		end
 		return { selection = paths }
 	end)
 
 	register("setSelection", function(args)
-		local Serialize = require(script.Parent.Parent.Serialize.Instance)
 		local instances = {}
 		for _, path in ipairs(args.paths or {}) do
 			local inst = Serialize.resolve(path)
