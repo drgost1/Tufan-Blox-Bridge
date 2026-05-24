@@ -68,3 +68,58 @@ export function stopWatcherForSession(sessionId: string) {
     watchers.delete(sessionId);
   }
 }
+
+// --- Mirror watcher: watches <base>/projects/<name>_<placeId> and pushes file
+// edits straight back into the place (file -> Studio) using the tree mirror map.
+import { studioPathFromMirror } from "./mirror.js";
+
+const mirrorWatchers = new Map<string, FSWatcher>();
+
+export function startMirrorWatcher(session: Session) {
+  if (!session.mirrorRoot) return;
+  stopMirrorWatcher(session.sessionId);
+
+  const w = chokidar.watch(session.mirrorRoot, {
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
+  });
+
+  const upsert = (absPath: string) => {
+    if (wasJustWrittenByServer(absPath)) return;
+    const m = studioPathFromMirror(session.mirrorRoot!, absPath);
+    if (!m) return;
+    let source = "";
+    try {
+      source = readFileSync(absPath, "utf8");
+    } catch {
+      return;
+    }
+    log(`[${session.placeName}] mirror file -> studio: ${m.studioPath}`);
+    void dispatchTo(session.placeId, "applyFileChange", {
+      studioPath: m.studioPath,
+      className: m.className,
+      kind: "upsert",
+      source,
+    }).catch((e) => log(`mirror applyFileChange failed: ${e.message}`));
+  };
+
+  const unlink = (absPath: string) => {
+    const m = studioPathFromMirror(session.mirrorRoot!, absPath);
+    if (!m) return;
+    void dispatchTo(session.placeId, "applyFileChange", { studioPath: m.studioPath, kind: "delete" }).catch(
+      (e) => log(`mirror delete failed: ${e.message}`),
+    );
+  };
+
+  w.on("add", upsert).on("change", upsert).on("unlink", unlink);
+  mirrorWatchers.set(session.sessionId, w);
+  log(`[${session.placeName}] watching mirror ${session.mirrorRoot}`);
+}
+
+export function stopMirrorWatcher(sessionId: string) {
+  const w = mirrorWatchers.get(sessionId);
+  if (w) {
+    void w.close();
+    mirrorWatchers.delete(sessionId);
+  }
+}

@@ -60,6 +60,25 @@ return function(register)
 		return { scripts = scripts }
 	end)
 
+	-- Full pull: every script's path + class + source in one response, for the
+	-- auto-mirror-on-connect flow. Skips plugin code.
+	register("pullAll", function()
+		local pluginDebug = game:FindFirstChild("PluginDebugService")
+		local scripts = {}
+		for _, d in ipairs(game:GetDescendants()) do
+			if d:IsA("LuaSourceContainer") then
+				if pluginDebug and d:IsDescendantOf(pluginDebug) then
+					continue
+				end
+				local ok, src = pcall(function() return d.Source end)
+				if ok then
+					table.insert(scripts, { studioPath = d:GetFullName(), className = d.ClassName, source = src })
+				end
+			end
+		end
+		return { scripts = scripts }
+	end)
+
 	register("findAndReplace", function(args)
 		-- args: find (plain text), replace, dryRun (bool)
 		local find = args.find

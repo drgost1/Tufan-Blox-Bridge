@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { text, errorText } from "../helpers.js";
-import { listPlaces, resolveTargetPlace, dispatchTo } from "../../bridge/sessions.js";
+import { text, errorText, placeArg } from "../helpers.js";
+import { listPlaces, resolveTargetPlace, dispatchTo, getSessionByPlace } from "../../bridge/sessions.js";
+import { pullPlace } from "../../sync/pull.js";
 
 export function registerPlaceTools(server: McpServer) {
   server.registerTool(
@@ -18,6 +19,27 @@ export function registerPlaceTools(server: McpServer) {
           .map((p) => `placeId=${p.placeId}  name="${p.name}"  gameId=${p.gameId ?? "?"}  root=${p.root}`)
           .join("\n"),
       );
+    },
+  );
+
+  server.registerTool(
+    "pull_place",
+    {
+      description: "Re-pull a connected place's full script tree into its local mirror folder (<project>/projects/<name>_<placeId>). Runs automatically on connect; use this to force a refresh.",
+      inputSchema: { place: placeArg },
+    },
+    async ({ place }) => {
+      const t = resolveTargetPlace(place);
+      if (t.error) return errorText(t.error);
+      const s = getSessionByPlace(t.placeId!);
+      if (!s) return errorText(`Place ${t.placeId} not connected.`);
+      if (!s.mirrorRoot) return errorText("This place is unpublished (PlaceId 0) — no local mirror is created for it.");
+      try {
+        const n = await pullPlace(s);
+        return text(`Pulled ${n} scripts -> ${s.mirrorRoot}`);
+      } catch (e) {
+        return errorText(`pull_place failed: ${(e as Error).message}`);
+      }
     },
   );
 

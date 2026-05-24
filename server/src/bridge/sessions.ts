@@ -3,10 +3,18 @@
 // map, so commands route to a specific place by PlaceId.
 
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import type { Command } from "./protocol.js";
 import { Project } from "../sync/project.js";
-import { resolveProjectForPlace, getPlaceIdByName } from "../registry.js";
+import { resolveProjectForPlace, getPlaceIdByName, validatedBase } from "../registry.js";
 import { log } from "../util/log.js";
+
+/** Local mirror folder for a published place: <base>/projects/<name>_<placeId>. */
+function mirrorRootFor(placeId: number, placeName: string): string | undefined {
+  if (!placeId || placeId === 0) return undefined; // only published places
+  const safe = placeName.replace(/[^A-Za-z0-9_-]/g, "_") || "Place";
+  return join(validatedBase(), "projects", `${safe}_${placeId}`);
+}
 
 interface Pending {
   resolve: (value: unknown) => void;
@@ -21,11 +29,13 @@ export interface Session {
   gameId?: number;
   placeName: string;
   root: string;
+  mirrorRoot?: string; // <base>/projects/<name>_<placeId> for published places
   project: Project | null;
   queue: Command[];
   waiters: Waiter[];
   pending: Map<string, Pending>;
   lastSeen: number;
+  connected: boolean;
 }
 
 const sessionsById = new Map<string, Session>();
@@ -60,18 +70,22 @@ export function onReady(info: ReadyInfo): Session {
     gameId: info.gameId,
     placeName: info.placeName,
     root: entry.root,
+    mirrorRoot: mirrorRootFor(info.placeId, info.placeName),
     project,
     queue: [],
     waiters: [],
     pending: new Map(),
     lastSeen: Date.now(),
+    connected: true,
   };
   session.placeId = info.placeId;
   session.gameId = info.gameId;
   session.placeName = info.placeName;
   session.root = entry.root;
+  session.mirrorRoot = mirrorRootFor(info.placeId, info.placeName);
   session.project = project;
   session.lastSeen = Date.now();
+  session.connected = true;
 
   sessionsById.set(info.sessionId, session);
   placeToSession.set(info.placeId, info.sessionId);
@@ -97,6 +111,26 @@ export function touch(sessionId: string) {
 
 export function listSessions(): Session[] {
   return [...sessionsById.values()];
+}
+
+/** Detect connect/disconnect transitions (no poll within staleMs = disconnected). */
+export function startHeartbeat(
+  hooks: { onDisconnect?: (s: Session) => void; onReconnect?: (s: Session) => void },
+  staleMs = 15_000,
+) {
+  setInterval(() => {
+    const now = Date.now();
+    for (const s of sessionsById.values()) {
+      const alive = now - s.lastSeen < staleMs;
+      if (s.connected && !alive) {
+        s.connected = false;
+        hooks.onDisconnect?.(s);
+      } else if (!s.connected && alive) {
+        s.connected = true;
+        hooks.onReconnect?.(s);
+      }
+    }
+  }, 5_000);
 }
 
 export function listPlaces() {

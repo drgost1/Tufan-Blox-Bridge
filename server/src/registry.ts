@@ -6,15 +6,32 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { log } from "./util/log.js";
 
-/** Normalize a filesystem path for robust comparison (absolute, no trailing
- *  separator, case-insensitive — Windows paths are case-insensitive and may
- *  arrive with mixed / and \\ separators). */
+/** Normalize a path: tolerate forward OR back slashes, resolve to absolute.
+ *  (Windows process-spawn can eat backslashes in env values, so forward slashes
+ *  are the safe form — Node handles them natively on Windows.) */
+export function cleanPath(p: string): string {
+  return resolve(p.replace(/\\/g, "/"));
+}
+
+/** Normalize for comparison (absolute, no trailing sep, case-insensitive). */
 function normRoot(p: string): string {
   try {
-    return resolve(p).replace(/[\\/]+$/, "").toLowerCase();
+    return cleanPath(p).replace(/[\\/]+$/, "").toLowerCase();
   } catch {
     return p.replace(/[\\/]+$/, "").toLowerCase();
   }
+}
+
+/** The validated project base dir. Falls back to cwd with a clear warning if
+ *  TUFAN_PROJECT is missing/invalid (e.g. mangled by env backslash-eating). */
+export function validatedBase(): string {
+  const raw = process.env.TUFAN_PROJECT;
+  if (raw) {
+    const norm = cleanPath(raw);
+    if (existsSync(norm)) return norm;
+    log(`WARNING: TUFAN_PROJECT="${raw}" is not a valid directory (resolved "${norm}"). Use forward slashes, e.g. C:/Users/you/project. Falling back to cwd: ${process.cwd()}`);
+  }
+  return process.cwd();
 }
 
 export interface ProjectEntry {
@@ -77,7 +94,7 @@ export function getPlaceIdByName(name: string): string | undefined {
 
 export function register(placeId: number | string, entry: ProjectEntry) {
   // Store a clean absolute path so the file never holds mangled separators.
-  const clean: ProjectEntry = { ...entry, root: resolve(entry.root) };
+  const clean: ProjectEntry = { ...entry, root: cleanPath(entry.root) };
   registry[String(placeId)] = clean;
   save();
   log(`registry: bound place ${placeId} ("${clean.name}") -> ${clean.root}`);
@@ -97,7 +114,7 @@ export function resolveProjectForPlace(
   const existing = getByPlaceId(placeId);
   if (existing) return existing;
 
-  const primary = process.env.TUFAN_PROJECT;
+  const primary = process.env.TUFAN_PROJECT ? validatedBase() : undefined;
   if (primary) {
     const boundPlace = getPlaceIdByRoot(primary);
     if (!boundPlace) {
