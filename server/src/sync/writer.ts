@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import type { Session } from "../bridge/sessions.js";
 import { markServerWrite } from "./loopguard.js";
 import { autoCommit } from "../git/git.js";
+import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
 export interface WriterOptions {
@@ -34,8 +35,9 @@ export function applyStudioChange(
   const relPath = session.project.relFromAbs(absPath);
   log(`[${session.placeName}] studio -> file: ${relPath}`);
 
-  if (opts.autoCommitOnStudioEdit) {
-    void autoCommit(session.root, relPath);
+  // Runtime toggles (plugin git switches) take precedence over the launch env.
+  if (runtimeConfig.autoCommit || opts.autoCommitOnStudioEdit) {
+    void autoCommit(session.root, relPath, runtimeConfig.autoPush);
   }
   return { written: true, relPath };
 }

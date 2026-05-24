@@ -12,6 +12,7 @@ import {
   resolveResponse,
 } from "./sessions.js";
 import { BRIDGE_PORT } from "./protocol.js";
+import { runtimeConfig, setConfig } from "../config.js";
 import { log } from "../util/log.js";
 
 export function startBridge(writerOpts: WriterOptions) {
@@ -66,6 +67,14 @@ export function startBridge(writerOpts: WriterOptions) {
     }
     const r = applyStudioChange(session, studioPath, source, writerOpts, className);
     res.json({ ok: r.written, relPath: r.relPath });
+  });
+
+  // Git toggle switches from the plugin widget.
+  app.get("/config", (_req, res) => res.json(runtimeConfig));
+  app.post("/config", (req, res) => {
+    setConfig(req.body ?? {});
+    log(`config: autoCommit=${runtimeConfig.autoCommit} autoPush=${runtimeConfig.autoPush}`);
+    res.json(runtimeConfig);
   });
 
   app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));

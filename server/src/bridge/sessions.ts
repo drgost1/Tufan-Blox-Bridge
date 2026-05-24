@@ -9,11 +9,15 @@ import { Project } from "../sync/project.js";
 import { resolveProjectForPlace, getPlaceIdByName, validatedBase } from "../registry.js";
 import { log } from "../util/log.js";
 
+/** Filesystem-safe, readable folder label from a place name. */
+export function sanitizeName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "Place";
+}
+
 /** Local mirror folder for a published place: <base>/projects/<name>_<placeId>. */
 function mirrorRootFor(placeId: number, placeName: string): string | undefined {
   if (!placeId || placeId === 0) return undefined; // only published places
-  const safe = placeName.replace(/[^A-Za-z0-9_-]/g, "_") || "Place";
-  return join(validatedBase(), "projects", `${safe}_${placeId}`);
+  return join(validatedBase(), "projects", `${sanitizeName(placeName)}_${placeId}`);
 }
 
 interface Pending {

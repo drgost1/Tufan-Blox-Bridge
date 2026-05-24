@@ -55,11 +55,23 @@ export async function branch(root: string, name?: string): Promise<string> {
   return `Created and switched to branch ${name}`;
 }
 
-export async function autoCommit(root: string, relPath: string): Promise<void> {
+export async function push(root: string): Promise<string> {
+  await gitFor(root).push();
+  return "pushed to remote";
+}
+
+export async function autoCommit(root: string, relPath: string, alsoPush = false): Promise<void> {
   try {
     const g = gitFor(root);
     await g.add([relPath]);
     await g.commit(`studio: edit ${relPath}`);
+    if (alsoPush) {
+      try {
+        await g.push();
+      } catch {
+        // no remote / offline — commit still succeeded
+      }
+    }
   } catch {
     // best-effort
   }

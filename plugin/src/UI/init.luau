@@ -1,5 +1,8 @@
 --!nocheck
--- Toolbar + dockable status/activity widget.
+-- Toolbar + dockable status/activity widget (with git toggle switches).
+
+local HttpService = game:GetService("HttpService")
+local Config = require(script.Parent.Net.Config)
 
 local UI = {}
 
@@ -63,10 +66,73 @@ function UI.start(plugin)
 	meta.Text = "server: 127.0.0.1:58741\nsession: —"
 	meta.Parent = header
 
+	-- Git toggle bar
+	local gitBar = Instance.new("Frame")
+	gitBar.Size = UDim2.new(1, 0, 0, 30)
+	gitBar.Position = UDim2.fromOffset(0, 56)
+	gitBar.BackgroundColor3 = color(theme, "Titlebar")
+	gitBar.BorderSizePixel = 0
+	gitBar.Parent = widget
+
+	local gitState = { autoCommit = false, autoPush = false }
+	local function postConfig()
+		pcall(function()
+			HttpService:RequestAsync({
+				Url = Config.serverUrl .. "/config",
+				Method = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body = HttpService:JSONEncode(gitState),
+			})
+		end)
+	end
+
+	local function makeToggle(label, key, x)
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.fromOffset(160, 22)
+		btn.Position = UDim2.fromOffset(x, 4)
+		btn.BorderSizePixel = 0
+		btn.Font = Enum.Font.GothamMedium
+		btn.TextSize = 11
+		btn.Parent = gitBar
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+		local function render()
+			btn.Text = label .. ": " .. (gitState[key] and "ON" or "OFF")
+			btn.BackgroundColor3 = gitState[key] and Color3.fromRGB(52, 199, 89) or color(theme, "Button")
+			btn.TextColor3 = gitState[key] and Color3.new(1, 1, 1) or color(theme, "ButtonText")
+		end
+		btn.Activated:Connect(function()
+			gitState[key] = not gitState[key]
+			render()
+			postConfig()
+		end)
+		render()
+		return btn
+	end
+
+	makeToggle("Auto-commit", "autoCommit", 8)
+	makeToggle("Auto-push", "autoPush", 176)
+
+	-- reflect server's current config on open
+	task.spawn(function()
+		local ok, res = pcall(function()
+			return HttpService:RequestAsync({ Url = Config.serverUrl .. "/config", Method = "GET" })
+		end)
+		if ok and res.Success then
+			local cfg = HttpService:JSONDecode(res.Body)
+			gitState.autoCommit = cfg.autoCommit or false
+			gitState.autoPush = cfg.autoPush or false
+			for _, b in ipairs(gitBar:GetChildren()) do
+				if b:IsA("TextButton") then
+					b.Text = b.Text:gsub(":.*", ": " .. ((b.Text:find("commit") and gitState.autoCommit or gitState.autoPush) and "ON" or "OFF"))
+				end
+			end
+		end
+	end)
+
 	-- Activity feed
 	local scroll = Instance.new("ScrollingFrame")
-	scroll.Size = UDim2.new(1, 0, 1, -56)
-	scroll.Position = UDim2.fromOffset(0, 56)
+	scroll.Size = UDim2.new(1, 0, 1, -86)
+	scroll.Position = UDim2.fromOffset(0, 86)
 	scroll.BackgroundColor3 = color(theme, "MainBackground")
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 6

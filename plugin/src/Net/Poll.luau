@@ -3,7 +3,27 @@
 -- the returned command to a handler, and POSTs the result to /response.
 
 local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local Config = require(script.Parent.Config)
+
+-- The real published place name (game.Name is the generic "Place1"). Cached.
+local placeNameCache = nil
+local function getPlaceName(): string
+	if placeNameCache then
+		return placeNameCache
+	end
+	local name = game.Name
+	if game.PlaceId and game.PlaceId ~= 0 then
+		local ok, info = pcall(function()
+			return MarketplaceService:GetProductInfo(game.PlaceId)
+		end)
+		if ok and type(info) == "table" and info.Name and info.Name ~= "" then
+			name = info.Name
+		end
+	end
+	placeNameCache = name
+	return name
+end
 
 local Poll = {}
 Poll.__index = Poll
@@ -38,7 +58,7 @@ function Poll:_ready()
 	local ok = pcall(function()
 		self:_post("/ready", {
 			sessionId = self.ctx.sessionId,
-			placeName = game.Name,
+			placeName = getPlaceName(),
 			placeId = game.PlaceId,
 			gameId = game.GameId,
 		})

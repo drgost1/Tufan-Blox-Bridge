@@ -124,7 +124,7 @@ export function resolveProjectForPlace(
     }
   }
 
-  const safeName = placeName.replace(/[^A-Za-z0-9_-]/g, "_") || "Place";
+  const safeName = placeName.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "Place";
   const root = join(baseProjectsDir(), `${safeName}_${placeId}`);
   mkdirSync(root, { recursive: true });
   const entry: ProjectEntry = { name: placeName, root, gameId };
