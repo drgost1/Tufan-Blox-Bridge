@@ -1,0 +1,10 @@
+{
+  "name": "tufan-blox-bridge-monorepo",
+  "private": true,
+  "description": "Tufan-Blox-Bridge — original AI-dev tool for Roblox Studio (MCP server + Studio plugin)",
+  "workspaces": ["server"],
+  "scripts": {
+    "build": "cd server && bun run build",
+    "build:plugin": "pwsh scripts/build-plugin.ps1"
+  }
+}

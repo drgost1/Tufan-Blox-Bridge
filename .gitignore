@@ -1,28 +1,17 @@
-# Build output — TufanBloxBridge.rbxm IS tracked so the installer can fetch it
-# from main branch as a fallback when no GitHub Release exists.
-*.rbxm
-*.rbxmx
-!src/vendor/**/*.rbxm
-!src/vendor/**/*.rbxmx
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build output
+server/dist/
+sourcemap.json
+
+# Keep the built plugin tracked so the installer can fetch it
 !TufanBloxBridge.rbxm
 
-# Argon temp / sourcemap
-sourcemap.json
-*.argon-cache
-.argon/
-
-# Editor
+# Editor / OS
 .vscode/
 .idea/
-
-# OS
 Thumbs.db
 .DS_Store
-
-# Logs
 *.log
-
-# Node (only during re-vendor step)
-node_modules/
-package-lock.json
-bun.lockb

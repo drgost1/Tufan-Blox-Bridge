@@ -1,88 +1,87 @@
 # Tufan-Blox-Bridge
 
-## One-line install (Windows, PowerShell)
+An original AI-dev tool for Roblox Studio, by **Tufan Studio**. One product:
+
+- **MCP server** — Claude Code / Cursor connect over stdio and get a full toolset to drive Roblox Studio.
+- **Studio plugin** — the in-Studio agent that executes those commands (plugins can't host MCP; they poll the server over HTTP).
+- **File sync** — files→Studio (Rojo-style) and scripts Studio→files.
+- **Git history** — commit/log/diff/restore/branch as MCP tools.
+
+No dependency on Argon or boshyxd's MCP — this is all original code. They were references only.
+
+## Architecture
+
+```
+Claude Code / Cursor ──stdio(MCP)──▶ SERVER (TypeScript) ──HTTP :58741──▶ PLUGIN (Luau, in Studio)
+                                       │ owns files + git              executes commands, watches scripts
+```
+
+The server runs two transports in one process: stdio for the AI client, and an HTTP long-poll endpoint on `127.0.0.1:58741` for the plugin. An AI tool call becomes a queued command the plugin picks up, executes, and answers.
+
+## Tools (34)
+
+- **Scripts** — get_script_source, set_script_source, grep_scripts, get_script_tree
+- **Instances** — create_instance, delete_instance, clone_instance, move_instance, rename_instance
+- **Properties** — get_properties, set_property, mass_set_property, search_by_property
+- **Tree** — get_children, get_descendants, search_objects, get_services
+- **Luau** — run_luau
+- **Logs** — get_output_log, get_playtest_output
+- **Assets** — search_assets, get_asset_details, insert_asset
+- **Git** — git_status, git_commit, git_log, git_diff, git_restore, git_branch
+- **Capture / Playtest** — capture_screenshot, start_playtest, stop_playtest, is_running
+
+> ⚠️ `capture_screenshot` and `start/stop_playtest` are honest stubs: Roblox provides no plugin API for viewport pixel capture or programmatic play control. They return a clear message rather than fake data. `is_running` works.
+
+## Setup (dev, pre-npm-publish)
+
+**1. Build the server**
+```powershell
+cd server
+bun install
+bun run build
+```
+
+**2. Build + install the plugin**
+```powershell
+pwsh scripts/build-plugin.ps1 -Install
+```
+
+**3. Point your AI client at the server**, with the project root as `TUFAN_PROJECT`:
+```powershell
+claude mcp add tufan --env TUFAN_PROJECT=C:\path\to\your\roblox\project -- node C:\Users\drgos_5ax3dfg\Tufan-Blox-Bridge\server\dist\index.js
+```
+Set `TUFAN_AUTOCOMMIT=1` too if you want every in-Studio script edit auto-committed to git.
+
+**4. Restart Studio + the AI client.** The Tufan toolbar appears; its widget shows a green "connected" pill once the server is reachable.
+
+## File sync
+
+Drop a Rojo/Argon-style `default.project.json` (or `tufan.project.json`) in your project root mapping services to folders:
+```json
+{ "name": "MyGame", "tree": {
+  "ServerScriptService": { "$path": "src/server" },
+  "ReplicatedStorage":   { "$path": "src/shared" }
+}}
+```
+The server watches those folders (files→Studio) and writes Studio script edits back to the matching files (Studio→files), with a loop guard so changes don't ping-pong.
+
+## Once published
 
 ```powershell
 iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1 | iex
 ```
+and the AI-client config becomes `npx -y tufan-blox-bridge`.
 
-Installs:
-- `TufanBloxBridge.rbxm` into `%LOCALAPPDATA%\Roblox\Plugins\`
-- Argon CLI into `~/.tufan-bridge/bin` (adds to PATH)
-- Patches your Claude Code MCP config (if found) to start `robloxstudio-mcp` on launch
-
-Then in your Roblox project folder: `argon init && argon serve`, restart Studio, restart Claude Code.
-
----
-
-One Roblox Studio plugin that combines:
-
-1. **[Argon](https://github.com/argon-rbx/argon-roblox)** — two-way sync between filesystem and Studio (via the Argon CLI on port `34872`)
-2. **[boshyxd's MCP](https://github.com/boshyxd/robloxstudio-mcp)** — AI tool access via the Model Context Protocol (via Node MCP server on port `58741`)
-3. **Tufan AI Dev layer** — coordination, activity feed, auto-snapshot, error mirror, lockdown mode (Phases B and C)
-
-Brand: **Tufan Studio**. Built for the Chomolokko + Meet the Storm pipelines, designed to be reusable on any Roblox project.
-
-## Status
-
-**Phase A done** — vendored upstream `.rbxm` files booted side-by-side under one plugin.
-
-**Phase B done (current)** — Coordinator + unified Tufan toolbar.
-- `HealthCheck` pings ports `34872` (Argon CLI) and `58741` (MCP server) every 5s, drives status pills.
-- `ActivityFeed` rings-buffers the last 200 LogService events, categorized as `argon` / `mcp` / `error` / `system` / `other`. Filterable in the Activity tab.
-- `EditLock` is a documented stub — proper mutex requires source-level vendoring (Phase D). The race in practice is rare since both Argon and MCP eventually converge on the same content.
-- Tufan toolbar with one button → 4-tab DockWidget (Argon / MCP / Activity / AI Dev).
-- Argon's and boshyxd's own toolbars are still visible because their vendored Scripts run their own bootstraps. Suppressing them needs source-level patches.
-
-**Phase C** — AIDev (auto-snapshot, error mirror, lockdown, playtest tracking).
-**Phase D (deferred)** — source-level vendoring with patches, unified Rust backend.
-
-See [`.claude/plans/i-have-two-plugins-sprightly-walrus.md`](../.claude/plans/i-have-two-plugins-sprightly-walrus.md) for the full plan.
-
-## Build
-
-Requires `argon` CLI (`tools/argon.exe` in the parent project, or installed globally).
-
-```powershell
-pwsh scripts/build.ps1
-```
-
-Produces `TufanBloxBridge.rbxm` at repo root and (with `--install`) copies it into `%LOCALAPPDATA%\Roblox\Plugins\`.
-
-## Install
-
-1. Uninstall `Argon.rbxm` and `MCPPlugin.rbxmx` from `%LOCALAPPDATA%\Roblox\Plugins\` (so they don't conflict).
-2. Drop `TufanBloxBridge.rbxm` into that folder.
-3. Restart Studio.
-
-Both Argon and MCP boot from inside this plugin — keep their backends running:
-
-- `argon serve` (port `34872`)
-- Claude Code MCP config points at `npx -y robloxstudio-mcp@latest` (port `58741`)
-
-## Layout
+## Repo
 
 ```
-src/
-├── init.server.luau            # plugin root Script, runs on load
-├── Coordinator/                # PHASE B — locks, feed, health
-├── AIDev/                      # PHASE C — snapshot, error mirror, lockdown, playtest
-├── UI/                         # PHASE B — unified toolbar + tabs
-└── vendor/
-    ├── argon/Argon.rbxm        # upstream Argon plugin binary
-    └── mcp/MCPPlugin.rbxmx     # upstream boshyxd plugin binary
+server/   TypeScript MCP server (publishable as tufan-blox-bridge)
+plugin/   Luau Studio plugin (built to TufanBloxBridge.rbxm)
+scripts/  build-plugin.ps1
 ```
 
-## Re-vendoring upstreams
-
-When upstream ships a new version:
-
-```powershell
-pwsh scripts/vendor-argon.ps1     # downloads latest Argon.rbxm release
-pwsh scripts/vendor-mcp.ps1       # downloads latest MCPPlugin.rbxmx release
-pwsh scripts/build.ps1
-```
+The previous vendoring approach (wrapping Argon + boshyxd) is archived on the `legacy-vendor` branch.
 
 ## License
 
-Tufan Studio code (anything outside `src/vendor/`) — see `LICENSE`. Vendored upstreams keep their own licenses — see `NOTICE`.
+MIT © Tufan Studio.
