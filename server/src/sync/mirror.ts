@@ -5,8 +5,8 @@
 // This backs the "open a place -> its tree appears locally" model. Scripts are
 // written as editable source; non-script instance structure is a later slice.
 
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, dirname, relative, sep } from "node:path";
+import { writeFileSync, mkdirSync, existsSync, rmSync, readdirSync, rmdirSync } from "node:fs";
+import { join, dirname, relative, resolve, sep } from "node:path";
 import { markServerWrite } from "./loopguard.js";
 
 // Windows caps paths at 260 chars unless prefixed with \\?\ (and using
@@ -76,6 +76,84 @@ export function writeMirrorScriptLive(
   mkdirSync(dirname(lp), { recursive: true });
   writeFileSync(lp, source, "utf8");
   return target;
+}
+
+// Every script-file spelling. A given Studio path maps to exactly one script
+// instance, so at most one of these files exists — "delete whichever exists" is
+// safe and means removal works even without knowing the removed script's class
+// (the instance is already gone by the time the plugin reports it).
+const ALL_SCRIPT_EXTS = [
+  ".server.lua",
+  ".server.luau",
+  ".client.lua",
+  ".client.luau",
+  ".lua",
+  ".luau",
+];
+
+/** Delete empty parent folders upward from `startDir`, stopping at projectRoot.
+ *  Used after a script (or a whole model of scripts) is removed in Studio so the
+ *  mirror doesn't keep hollow folders around. */
+function pruneEmptyDirs(projectRoot: string, startDir: string): void {
+  const root = resolve(projectRoot);
+  let dir = startDir;
+  while (true) {
+    const abs = resolve(dir);
+    if (abs === root || !abs.startsWith(root + sep)) break; // never touch the root itself or escape it
+    const lp = longPath(dir);
+    if (!existsSync(lp)) {
+      dir = dirname(dir);
+      continue;
+    }
+    let entries: string[];
+    try {
+      entries = readdirSync(lp);
+    } catch {
+      break;
+    }
+    if (entries.length > 0) break; // not empty — leave it (still holds other scripts)
+    try {
+      rmdirSync(lp);
+    } catch {
+      break;
+    }
+    dir = dirname(dir);
+  }
+}
+
+/** Remove the mirror file(s) for a Studio script that was deleted/moved away.
+ *  Tries both the leaf form (<segs>/Name.ext) and the folder-script form
+ *  (<segs>/Name/init.ext), and both `.lua`/`.luau` spellings, then prunes any
+ *  folders left empty. Returns the relative paths that were actually removed. */
+export function removeMirrorScript(projectRoot: string, studioPath: string): string[] {
+  const segs = studioPath.split(".").map(sanitizeSegment);
+  const leaf = segs[segs.length - 1];
+  const parentSegs = segs.slice(0, -1);
+  const removed: string[] = [];
+
+  for (const ext of ALL_SCRIPT_EXTS) {
+    const candidates = [
+      join(projectRoot, ...parentSegs, leaf + ext), // leaf form
+      join(projectRoot, ...segs, "init" + ext), // folder-script (init) form
+    ];
+    for (const c of candidates) {
+      const lp = longPath(c);
+      if (existsSync(lp)) {
+        markServerWrite(c); // suppress the chokidar unlink echo back into Studio
+        try {
+          rmSync(lp, { force: true });
+          removed.push(relative(projectRoot, c));
+        } catch {
+          /* best-effort */
+        }
+      }
+    }
+  }
+
+  // prune the folder-script dir (segs) and the leaf's parent dir (parentSegs)
+  pruneEmptyDirs(projectRoot, join(projectRoot, ...segs));
+  if (parentSegs.length > 0) pruneEmptyDirs(projectRoot, join(projectRoot, ...parentSegs));
+  return removed;
 }
 
 const CLASS_BY_EXT: { suffix: string; className: string }[] = [

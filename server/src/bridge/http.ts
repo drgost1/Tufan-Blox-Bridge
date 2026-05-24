@@ -2,7 +2,7 @@
 // session (one per connected place).
 
 import express from "express";
-import { applyStudioChange, type WriterOptions } from "../sync/writer.js";
+import { applyStudioChange, applyStudioSync, type WriterOptions } from "../sync/writer.js";
 import {
   onReady,
   getSession,
@@ -67,6 +67,23 @@ export function startBridge(writerOpts: WriterOptions) {
     }
     const r = applyStudioChange(session, studioPath, source, writerOpts, className);
     res.json({ ok: r.written, relPath: r.relPath });
+  });
+
+  // Batched structural sync from the plugin's reconcile: deletes, pastes,
+  // duplicates, renames, reparents — anything that changes the script-path set.
+  app.post("/studio-sync", (req, res) => {
+    const { sessionId, removes, upserts } = req.body ?? {};
+    let session = sessionId ? getSession(sessionId) : undefined;
+    if (!session) {
+      const all = listSessions();
+      if (all.length === 1) session = all[0];
+    }
+    if (!session) {
+      res.json({ ok: false, error: "unknown session" });
+      return;
+    }
+    const r = applyStudioSync(session, { removes, upserts }, writerOpts);
+    res.json({ ok: true, removed: r.removed, written: r.written });
   });
 
   // Git toggle switches from the plugin widget.

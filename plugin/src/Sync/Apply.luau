@@ -50,14 +50,18 @@ return function(register, ctx)
 			return { ok = true, deleted = true }
 		end
 
-		-- upsert
+		-- upsert: resolve an existing instance first (handles ' (N)' duplicate
+		-- siblings), only create the path if nothing resolves
 		local className = args.className or "ModuleScript"
-		local inst = ensureScript(args.studioPath, className)
+		local inst = Serialize.resolve(args.studioPath)
+		if not inst or not inst:IsA("LuaSourceContainer") then
+			inst = ensureScript(args.studioPath, className)
+		end
 		if inst:IsA("LuaSourceContainer") then
 			if inst.Source ~= args.source then
 				inst.Source = args.source
 			end
 		end
-		return { ok = true, path = inst:GetFullName() }
+		return { ok = true, path = Serialize.uniquePath(inst) }
 	end)
 end

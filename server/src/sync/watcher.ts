@@ -49,6 +49,7 @@ export function startWatcherForSession(session: Session) {
   };
 
   const unlink = (absPath: string) => {
+    if (wasJustWrittenByServer(absPath)) return; // server removed it (Studio-originated) — don't echo back
     const studioPath = session.project!.computeStudioPath(absPath);
     if (!studioPath) return;
     void dispatchTo(session.placeId, "applyFileChange", { studioPath, kind: "delete" }).catch(
@@ -104,6 +105,7 @@ export function startMirrorWatcher(session: Session) {
   };
 
   const unlink = (absPath: string) => {
+    if (wasJustWrittenByServer(absPath)) return; // server removed it (Studio-originated) — don't echo back
     const m = studioPathFromMirror(session.mirrorRoot!, absPath);
     if (!m) return;
     void dispatchTo(session.placeId, "applyFileChange", { studioPath: m.studioPath, kind: "delete" }).catch(
