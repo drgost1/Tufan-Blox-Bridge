@@ -31,7 +31,7 @@ export function startWatcherForSession(session: Session) {
     const cls = classFromFilename(absPath);
     if (!cls) return;
     if (wasJustWrittenByServer(absPath)) return;
-    const studioPath = session.project!.studioPathFor(absPath);
+    const studioPath = session.project!.computeStudioPath(absPath);
     if (!studioPath) return;
     let source = "";
     try {
@@ -49,7 +49,7 @@ export function startWatcherForSession(session: Session) {
   };
 
   const unlink = (absPath: string) => {
-    const studioPath = session.project!.studioPathFor(absPath);
+    const studioPath = session.project!.computeStudioPath(absPath);
     if (!studioPath) return;
     void dispatchTo(session.placeId, "applyFileChange", { studioPath, kind: "delete" }).catch(
       (e) => log(`applyFileChange(delete) failed: ${e.message}`),

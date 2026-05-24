@@ -53,7 +53,7 @@ export function startBridge(writerOpts: WriterOptions) {
   });
 
   app.post("/studio-change", (req, res) => {
-    const { sessionId, studioPath, source } = req.body ?? {};
+    const { sessionId, studioPath, source, className } = req.body ?? {};
     let session = sessionId ? getSession(sessionId) : undefined;
     if (!session) {
       // fallback: if exactly one place is connected, use it
@@ -64,7 +64,7 @@ export function startBridge(writerOpts: WriterOptions) {
       res.json({ ok: false, error: "unknown session" });
       return;
     }
-    const r = applyStudioChange(session, studioPath, source, writerOpts);
+    const r = applyStudioChange(session, studioPath, source, writerOpts, className);
     res.json({ ok: r.written, relPath: r.relPath });
   });
 

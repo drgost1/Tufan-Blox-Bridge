@@ -56,6 +56,8 @@ export class Project {
   private fsToStudio = new Map<string, string>();
   /** maps studio path -> absolute fs path */
   private studioToFs = new Map<string, string>();
+  /** $path roots: absolute dir -> studio prefix (for dynamic path computation) */
+  private rootMappings: { absDir: string; studioPrefix: string }[] = [];
 
   constructor(root: string, file: ProjectFile) {
     this.root = root;
@@ -86,6 +88,7 @@ export class Project {
       if (typeof childNode.$path === "string") {
         const absDir = join(this.root, childNode.$path);
         if (existsSync(absDir) && statSync(absDir).isDirectory()) {
+          this.rootMappings.push({ absDir, studioPrefix: studioPath });
           this.mapDir(absDir, studioPath);
         }
       }
@@ -124,8 +127,70 @@ export class Project {
     return this.fsToStudio.get(absPath);
   }
 
+  /**
+   * Compute the studio path for any file under a $path root — including files
+   * that did not exist when the project was loaded (new files). Returns
+   * undefined if the path isn't a script under a mapped root.
+   */
+  computeStudioPath(absPath: string): string | undefined {
+    if (!classFromFilename(absPath)) return undefined;
+    let best: { absDir: string; studioPrefix: string } | undefined;
+    for (const m of this.rootMappings) {
+      const prefix = m.absDir + sep;
+      if (absPath.startsWith(prefix) || absPath === m.absDir) {
+        if (!best || m.absDir.length > best.absDir.length) best = m;
+      }
+    }
+    if (!best) return undefined;
+
+    const rel = relative(best.absDir, absPath).split(sep);
+    const leaf = rel.pop()!;
+    const dirs = rel; // intermediate folders
+    const parts = [best.studioPrefix, ...dirs];
+    if (!leaf.startsWith("init.")) {
+      parts.push(scriptNameFromFile(leaf));
+    }
+    return parts.join(".");
+  }
+
   fsPathFor(studioPath: string): string | undefined {
     return this.studioToFs.get(studioPath);
+  }
+
+  /**
+   * Compute the filesystem path for a studio path (reverse of
+   * computeStudioPath), resolving the right extension by className. Reuses an
+   * existing file if one is already present (matching .lua/.luau); otherwise
+   * returns the preferred new-file path. Returns undefined if the studio path
+   * isn't under a mapped root.
+   */
+  computeFsPath(studioPath: string, className?: string): string | undefined {
+    const extsByClass: Record<string, string[]> = {
+      Script: [".server.luau", ".server.lua"],
+      LocalScript: [".client.luau", ".client.lua"],
+      ModuleScript: [".luau", ".lua"],
+    };
+
+    let best: { absDir: string; studioPrefix: string } | undefined;
+    for (const m of this.rootMappings) {
+      if (studioPath === m.studioPrefix || studioPath.startsWith(m.studioPrefix + ".")) {
+        if (!best || m.studioPrefix.length > best.studioPrefix.length) best = m;
+      }
+    }
+    if (!best) return undefined;
+
+    const relStudio = studioPath === best.studioPrefix ? "" : studioPath.slice(best.studioPrefix.length + 1);
+    const parts = relStudio ? relStudio.split(".") : [];
+    const leaf = parts.pop();
+    if (!leaf) return undefined;
+    const dirAbs = parts.length ? join(best.absDir, ...parts) : best.absDir;
+
+    const exts = extsByClass[className ?? ""] ?? [".luau", ".lua", ".server.luau", ".server.lua", ".client.luau", ".client.lua"];
+    for (const ext of exts) {
+      const candidate = join(dirAbs, leaf + ext);
+      if (existsSync(candidate)) return candidate;
+    }
+    return join(dirAbs, leaf + exts[0]);
   }
 
   relFromAbs(absPath: string): string {

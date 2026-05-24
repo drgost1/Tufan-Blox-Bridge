@@ -16,11 +16,13 @@ export function applyStudioChange(
   studioPath: string,
   source: string,
   opts: WriterOptions,
+  className?: string,
 ): { written: boolean; relPath?: string } {
   if (!session.project) {
     return { written: false };
   }
-  const absPath = session.project.fsPathFor(studioPath);
+  const absPath =
+    session.project.fsPathFor(studioPath) ?? session.project.computeFsPath(studioPath, className);
   if (!absPath) {
     return { written: false }; // unmapped path — silently ignore
   }
