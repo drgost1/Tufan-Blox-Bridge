@@ -87,6 +87,50 @@ export function registerAssetTools(server: McpServer) {
   );
 
   server.registerTool(
+    "get_asset_thumbnail",
+    {
+      description:
+        "Fetch an asset's thumbnail as a PNG image so the AI can SEE what it looks like before using it. Uses Roblox's public thumbnail API (works for any public asset — no ownership needed, unlike insert_asset). Server-side.",
+      inputSchema: {
+        assetId: z.number(),
+        size: z.enum(["150x150", "420x420", "700x700"]).optional().describe("default 420x420"),
+      },
+    },
+    async ({ assetId, size }) => {
+      try {
+        const sz = size ?? "420x420";
+        const meta: any = await fetch(
+          `https://thumbnails.roblox.com/v1/assets?assetIds=${assetId}&size=${sz}&format=Png&isCircular=false`,
+          { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10_000) },
+        ).then((r) => r.json());
+        const entry = meta?.data?.[0];
+        if (!entry?.imageUrl) return errorText(`No thumbnail for ${assetId} (state: ${entry?.state ?? "unknown"}).`);
+        const ab = await fetch(entry.imageUrl, { signal: AbortSignal.timeout(10_000) }).then((r) => r.arrayBuffer());
+        const buf = Buffer.from(new Uint8Array(ab));
+        if (buf.length < 100) return errorText("Thumbnail came back empty.");
+        return { content: [{ type: "image", data: buf.toString("base64"), mimeType: "image/png" }] };
+      } catch (e) {
+        return errorText(`get_asset_thumbnail failed: ${(e as Error).message}`);
+      }
+    },
+  );
+
+  server.registerTool(
+    "search_materials",
+    {
+      description: "List custom MaterialVariants defined in this place's MaterialService (name + base material), optionally filtered by name.",
+      inputSchema: { name: z.string().optional().describe("filter by name substring"), place: placeArg },
+    },
+    async ({ name, place }) =>
+      runStudio("searchMaterials", { name: name ?? null }, (r) =>
+        Array.isArray(r?.materials) && r.materials.length
+          ? r.materials.map((m: any) => `${m.name}  (base: ${m.baseMaterial})`).join("\n")
+          : "(no custom MaterialVariants in MaterialService)",
+        place,
+      ),
+  );
+
+  server.registerTool(
     "insert_asset",
     {
       description:

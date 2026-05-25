@@ -127,4 +127,20 @@ return function(register)
 		if not ok then error("failed to set attribute: " .. tostring(setErr)) end
 		return { ok = true }
 	end)
+
+	register("searchMaterials", function(args)
+		local MaterialService = game:GetService("MaterialService")
+		local filter = args.name and string.lower(args.name) or nil
+		local out = {}
+		for _, m in ipairs(MaterialService:GetDescendants()) do
+			if m:IsA("MaterialVariant") then
+				if (not filter) or string.find(string.lower(m.Name), filter, 1, true) then
+					local base = "?"
+					pcall(function() base = m.BaseMaterial and m.BaseMaterial.Name or "?" end)
+					table.insert(out, { name = m.Name, baseMaterial = base })
+				end
+			end
+		end
+		return { materials = out }
+	end)
 end
