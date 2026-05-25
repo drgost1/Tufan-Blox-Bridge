@@ -9,8 +9,9 @@ sourcemap.json
 # Keep the built plugin tracked so the installer can fetch it
 !TufanBloxBridge.rbxm
 
-# Plugin builder binary (argon/rojo) — fetched locally, not committed (~10 MB)
-tools/
+# Plugin builder binary (argon/rojo) — fetched locally, not committed (~10 MB).
+# Root-anchored (leading /) so it does NOT also match server/src/mcp/tools/.
+/tools/
 
 
 # Editor / OS
