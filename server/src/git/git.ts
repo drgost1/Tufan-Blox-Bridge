@@ -80,14 +80,77 @@ export async function snapshotIfDirty(root: string, message: string): Promise<bo
   }
 }
 
-export async function diff(root: string, path?: string): Promise<string> {
-  const out = await gitFor(root).diff(path ? [path] : []);
-  return out || "(no unstaged changes)";
+/** Diff. Default = working tree. `from`/`to` diff commits/refs (e.g. HEAD~1..HEAD). */
+export async function diff(root: string, path?: string, from?: string, to?: string): Promise<string> {
+  const args: string[] = [];
+  if (from && to) args.push(`${from}..${to}`);
+  else if (from) args.push(from); // from..working-tree
+  if (path) args.push("--", path);
+  const out = await gitFor(root).diff(args);
+  return out || "(no differences)";
 }
 
-export async function restore(root: string, target: string): Promise<string> {
-  await gitFor(root).checkout(["--", target]);
+/** Restore a file. With `source` (a commit/ref) it recovers that older version —
+ *  the key recovery path for an edit you want back. */
+export async function restore(root: string, target: string, source?: string): Promise<string> {
+  const g = gitFor(root);
+  if (source) {
+    await g.raw(["checkout", source, "--", target]);
+    return `Restored ${target} from ${source}`;
+  }
+  await g.checkout(["--", target]);
   return `Restored ${target} to HEAD`;
+}
+
+/** Show a commit (metadata + stat) or a file's content at a ref (`ref`, `path`). */
+export async function show(root: string, ref: string, path?: string): Promise<string> {
+  const g = gitFor(root);
+  if (path) {
+    const out = await g.raw(["show", `${ref}:${path}`]);
+    return out || "(empty file at that commit)";
+  }
+  const out = await g.raw(["show", "--stat", "--format=fuller", ref]);
+  return out || "(nothing)";
+}
+
+/** Recover a deleted/lost file: find the most recent commit where it had content
+ *  (Added/Modified/Renamed, not Deleted), across all history, and restore it. */
+export async function recoverFile(root: string, path: string): Promise<string> {
+  const g = gitFor(root);
+  const hash = (
+    await g
+      .raw(["log", "--all", "-n", "1", "--format=%H", "--diff-filter=AMCR", "--", path])
+      .catch(() => "")
+  ).trim().split("\n")[0];
+  if (!hash) return `No committed history found for '${path}' — can't recover (was it ever committed under this exact path?).`;
+  await g.raw(["checkout", hash, "--", path]);
+  return `Recovered '${path}' from commit ${hash.slice(0, 8)} (the last commit it had content in).`;
+}
+
+/** Revert a commit — creates a new commit undoing it (safe, non-destructive). */
+export async function revert(root: string, ref: string): Promise<string> {
+  await gitFor(root).raw(["revert", "--no-edit", ref]);
+  return `Reverted ${ref} — a new commit now undoes its changes.`;
+}
+
+/** List remotes, or add one. Adding origin + a GitHub URL lets you push the
+ *  mirror off-machine for a true backup (the local mirror alone dies with the disk). */
+export async function remote(root: string, action: "list" | "add" = "list", name?: string, url?: string): Promise<string> {
+  const g = gitFor(root);
+  if (action === "add") {
+    if (!name || !url) throw new Error("remote add needs both name and url");
+    await g.addRemote(name, url);
+    return `Added remote '${name}' -> ${url}. Push with git_push.`;
+  }
+  const remotes = await g.getRemotes(true);
+  if (!remotes.length) return "(no remotes) — add one with action='add' (e.g. name 'origin' + a GitHub repo URL) to back this place up off-machine.";
+  return remotes.map((r) => `${r.name}\t${r.refs?.fetch ?? ""}`).join("\n");
+}
+
+/** Pull from a remote (fetch + merge). Used to restore a mirror on another machine. */
+export async function pull(root: string): Promise<string> {
+  const r = await gitFor(root).pull();
+  return `Pulled — ${r.summary.changes} changed, +${r.summary.insertions} -${r.summary.deletions}`;
 }
 
 export async function branch(root: string, name?: string): Promise<string> {

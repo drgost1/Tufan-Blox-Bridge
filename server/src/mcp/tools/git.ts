@@ -53,19 +53,78 @@ export function registerGitTools(server: McpServer) {
 
   server.registerTool(
     "git_diff",
-    { description: "Working-tree diff, optionally for one path.", inputSchema: { path: z.string().optional(), place: placeArg } },
-    async ({ path, place }) => withRoot(place, (root) => git.diff(root, path)),
+    {
+      description: "Diff. Default = working tree. Give from/to to compare commits/refs (e.g. from 'HEAD~1' to 'HEAD', or from a commit hash). Optionally scope to one path.",
+      inputSchema: { path: z.string().optional(), from: z.string().optional(), to: z.string().optional(), place: placeArg },
+    },
+    async ({ path, from, to, place }) => withRoot(place, (root) => git.diff(root, path, from, to)),
   );
 
   server.registerTool(
     "git_restore",
-    { description: "Discard working changes for a path (restore to HEAD).", inputSchema: { path: z.string(), place: placeArg } },
-    async ({ path, place }) => withRoot(place, (root) => git.restore(root, path)),
+    {
+      description: "Restore a file. Without source: discard working changes (restore to HEAD). With source (a commit/ref): recover that OLDER version of the file — use this to get back an edit you lost.",
+      inputSchema: { path: z.string(), source: z.string().optional().describe("commit/ref to restore the file FROM (e.g. a hash or HEAD~3)"), place: placeArg },
+    },
+    async ({ path, source, place }) => withRoot(place, (root) => git.restore(root, path, source)),
+  );
+
+  server.registerTool(
+    "git_recover",
+    {
+      description: "Recover a DELETED / lost file: finds the most recent commit where it still had content and restores it. The one-shot 'get my script back' tool.",
+      inputSchema: { path: z.string().describe("the Studio-path-style file path that was lost"), place: placeArg },
+    },
+    async ({ path, place }) => withRoot(place, (root) => git.recoverFile(root, path)),
+  );
+
+  server.registerTool(
+    "git_show",
+    {
+      description: "Show a commit (metadata + changed-file stat) by ref, or a file's exact content at that ref when path is given.",
+      inputSchema: { ref: z.string().describe("commit hash, HEAD, HEAD~2, tag, branch…"), path: z.string().optional(), place: placeArg },
+    },
+    async ({ ref, path, place }) => withRoot(place, (root) => git.show(root, ref, path)),
+  );
+
+  server.registerTool(
+    "git_revert",
+    {
+      description: "Revert a commit — creates a new commit that undoes it (safe, keeps history). Use to roll back a bad change.",
+      inputSchema: { ref: z.string().describe("commit to revert"), place: placeArg },
+    },
+    async ({ ref, place }) => withRoot(place, (root) => git.revert(root, ref)),
   );
 
   server.registerTool(
     "git_branch",
     { description: "List branches, or create+switch when name given.", inputSchema: { name: z.string().optional(), place: placeArg } },
     async ({ name, place }) => withRoot(place, (root) => git.branch(root, name)),
+  );
+
+  server.registerTool(
+    "git_remote",
+    {
+      description: "List remotes, or add one (action:'add' + name + url). Add a GitHub remote to back the place mirror up OFF-machine — the local mirror alone dies with the disk.",
+      inputSchema: {
+        action: z.enum(["list", "add"]).optional(),
+        name: z.string().optional().describe("remote name, e.g. 'origin'"),
+        url: z.string().optional().describe("remote URL, e.g. a GitHub repo"),
+        place: placeArg,
+      },
+    },
+    async ({ action, name, url, place }) => withRoot(place, (root) => git.remote(root, action ?? "list", name, url)),
+  );
+
+  server.registerTool(
+    "git_push",
+    { description: "Push commits to the remote (set one up first with git_remote add). Off-machine backup.", inputSchema: { place: placeArg } },
+    async ({ place }) => withRoot(place, (root) => git.push(root)),
+  );
+
+  server.registerTool(
+    "git_pull",
+    { description: "Pull from the remote (fetch + merge). Restore/sync a mirror from its off-machine backup.", inputSchema: { place: placeArg } },
+    async ({ place }) => withRoot(place, (root) => git.pull(root)),
   );
 }
