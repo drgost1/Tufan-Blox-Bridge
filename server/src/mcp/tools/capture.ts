@@ -7,8 +7,9 @@ import { errorText } from "../helpers.js";
 // as Studio, so we capture the Studio window at the OS level instead — giving
 // the AI real eyes on its work. Windows-only for now (the common case).
 
-// PowerShell: capture the Roblox Studio window (fallback: primary screen),
-// downscale to maxW, and write base64 PNG to stdout.
+// PowerShell: capture ONLY the Roblox Studio window (no full-screen fallback),
+// downscale to maxW, and write base64 PNG to stdout. If Studio isn't found we
+// exit non-zero with a clear message rather than snapping the whole desktop.
 function captureScript(maxW: number): string {
   return `
 $ErrorActionPreference = 'Stop'
@@ -16,23 +17,32 @@ Add-Type -AssemblyName System.Drawing, System.Windows.Forms
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public class W { [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
-  [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rt, B; } }
-"@
-$b = $null
-$p = Get-Process RobloxStudioBeta -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-if ($p) {
-  $r = New-Object W+R
-  if ([W]::GetWindowRect($p.MainWindowHandle, [ref]$r)) {
-    $w = $r.Rt - $r.L; $h = $r.B - $r.T
-    if ($w -gt 100 -and $h -gt 100 -and $r.L -gt -30000) { $b = @($r.L, $r.T, $w, $h) }
-  }
+public class W {
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out R r);
+  [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr h, int a, out R r, int s);
+  [StructLayout(LayoutKind.Sequential)] public struct R { public int L, T, Rt, B; }
 }
-if (-not $b) { $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $b = @($s.X, $s.Y, $s.Width, $s.Height) }
-$sw = $b[2]; $sh = $b[3]
+"@
+# True visible bounds: DWMWA_EXTENDED_FRAME_BOUNDS (9) excludes the invisible
+# resize border Windows adds; fall back to GetWindowRect if DWM is unavailable.
+function Get-Bounds($h) {
+  $r = New-Object W+R
+  $ok = $false
+  try { if ([W]::DwmGetWindowAttribute($h, 9, [ref]$r, 16) -eq 0) { $ok = $true } } catch {}
+  if (-not $ok) { [void][W]::GetWindowRect($h, [ref]$r) }
+  return $r
+}
+# Match the Studio process by name (RobloxStudio / RobloxStudioBeta) or window title.
+$p = Get-Process -ErrorAction SilentlyContinue |
+  Where-Object { $_.MainWindowHandle -ne 0 -and ($_.ProcessName -like 'RobloxStudio*' -or $_.MainWindowTitle -like '*Roblox Studio*') } |
+  Select-Object -First 1
+if (-not $p) { [Console]::Error.WriteLine('Roblox Studio window not found — open Studio and bring it on-screen.'); exit 2 }
+$r = Get-Bounds $p.MainWindowHandle
+$sw = $r.Rt - $r.L; $sh = $r.B - $r.T
+if ($sw -lt 100 -or $sh -lt 100) { [Console]::Error.WriteLine('Roblox Studio window is minimized or off-screen — restore it and retry.'); exit 2 }
 $full = New-Object System.Drawing.Bitmap $sw, $sh
 $g = [System.Drawing.Graphics]::FromImage($full)
-$g.CopyFromScreen($b[0], $b[1], 0, 0, (New-Object System.Drawing.Size($sw, $sh)))
+$g.CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size($sw, $sh)))
 $scale = 1.0; if ($sw -gt ${maxW}) { $scale = ${maxW} / $sw }
 $ow = [int]($sw * $scale); $oh = [int]($sh * $scale)
 $out = New-Object System.Drawing.Bitmap $ow, $oh
@@ -67,7 +77,7 @@ export function registerCaptureTools(server: McpServer) {
     "capture_screenshot",
     {
       description:
-        "Capture a PNG screenshot of the Roblox Studio window (server-side OS capture; falls back to the primary screen if the Studio window isn't found). Use this to visually verify UI/scene/VFX you just built. Windows-only.",
+        "Capture a PNG screenshot of just the Roblox Studio window (server-side OS capture, tightly cropped to the window — not the full desktop). Errors if Studio isn't open/on-screen. Use this to visually verify UI/scene/VFX you just built. Windows-only.",
       inputSchema: {},
     },
     async () => {
