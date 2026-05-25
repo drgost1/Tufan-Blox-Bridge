@@ -67,7 +67,17 @@ async function main() {
   startBridge({ autoCommitOnStudioEdit: process.env.TUFAN_AUTOCOMMIT === "1" });
 
   const server = createServer();
-  await server.connect(new StdioServerTransport());
+  const transport = new StdioServerTransport();
+  // Exit when the MCP client (Claude/Cursor session) disconnects. The HTTP bridge
+  // keeps the event loop alive, so without this a closed session would leave an
+  // orphan holding the port — the root of the old -32000 reconnect failures, and
+  // it's what lets a dormant sibling session take over cleanly when this one ends.
+  transport.onclose = () => {
+    log("stdio client disconnected — exiting so the port frees");
+    process.exit(0);
+  };
+  process.stdin.on("close", () => process.exit(0)); // belt-and-suspenders
+  await server.connect(transport);
   log("MCP server connected over stdio");
 }
 

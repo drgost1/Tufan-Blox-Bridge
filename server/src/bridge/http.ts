@@ -183,7 +183,7 @@ export function startBridge(writerOpts: WriterOptions) {
     }
   });
 
-  app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));
+  app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true, sessions: listSessions().length }));
 
   // Let a newer instance ask this one to step down (used for self-healing below).
   app.post("/shutdown", (_req, res) => {
@@ -192,10 +192,11 @@ export function startBridge(writerOpts: WriterOptions) {
     setTimeout(() => process.exit(0), 100);
   });
 
-  let takeoverTried = false;
+  let dormantLogged = false;
   const startListening = () => {
     const server = app.listen(BRIDGE_PORT, "127.0.0.1", () => {
       log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);
+      dormantLogged = false; // we became owner (possibly after a handoff)
     });
 
     server.on("error", async (err: NodeJS.ErrnoException) => {
@@ -203,33 +204,38 @@ export function startBridge(writerOpts: WriterOptions) {
         log(`bridge server error: ${err.message}`);
         process.exit(1);
       }
-      // Self-heal: if a STALE Tufan bridge holds the port (the #1 reconnect
-      // failure — old npx instance never died), ask it to step down and retry.
-      // Only a tufan bridge is asked; another app's port is left alone.
-      if (!takeoverTried) {
-        takeoverTried = true;
-        if (await askStalePortToStepDown()) {
-          log(`a stale Tufan-Blox-Bridge held ${BRIDGE_PORT}; asked it to exit, retrying...`);
-          setTimeout(startListening, 800);
-          return;
+      // Port is taken. CRUCIAL: never shut down whoever owns it — that was the
+      // multi-session bug (a new session killing a live one). Instead stay DORMANT
+      // and retry. When the owner's Claude session ends, its server exits on stdio
+      // close (below) and frees the port; we then take over and the plugin
+      // reconnects here automatically. Graceful handoff, zero disconnects.
+      if (!dormantLogged) {
+        dormantLogged = true;
+        const holder = await probeHolder();
+        if (holder?.isTufan) {
+          log(
+            `another Tufan-Blox-Bridge session owns the Studio bridge on ${BRIDGE_PORT}` +
+              (holder.sessions ? ` (${holder.sessions} place(s) connected)` : "") +
+              `. Staying dormant — Studio belongs to that session until it closes, then this ` +
+              `one takes over. This session's Studio tools are inactive meanwhile.`,
+          );
+        } else {
+          log(`port ${BRIDGE_PORT} held by ${holder === null ? "an unresponsive process" : "another app"}; retrying. Studio unaffected.`);
         }
-        log(`port ${BRIDGE_PORT} is held by a non-Tufan process — close it and relaunch. Studio is unaffected.`);
       }
-      process.exit(1);
+      setTimeout(startListening, 12_000); // periodic retry → takes over when the port frees
     });
   };
   startListening();
 }
 
-/** If the process on BRIDGE_PORT is itself a Tufan bridge, POST /shutdown to it. */
-async function askStalePortToStepDown(): Promise<boolean> {
-  const base = `http://127.0.0.1:${BRIDGE_PORT}`;
+/** Probe whoever holds the port: a Tufan bridge (and how many places live), or other. */
+async function probeHolder(): Promise<{ isTufan: boolean; sessions: number } | null> {
   try {
-    const who: any = await fetch(`${base}/`, { signal: AbortSignal.timeout(1500) }).then((r) => r.json());
-    if (who?.name !== "tufan-blox-bridge") return false; // someone else's port — don't touch
-    await fetch(`${base}/shutdown`, { method: "POST", signal: AbortSignal.timeout(1500) }).catch(() => {});
-    return true;
+    const who: any = await fetch(`http://127.0.0.1:${BRIDGE_PORT}/`, { signal: AbortSignal.timeout(1500) }).then((r) => r.json());
+    if (who?.name !== "tufan-blox-bridge") return { isTufan: false, sessions: 0 };
+    return { isTufan: true, sessions: Number(who.sessions ?? 0) };
   } catch {
-    return false;
+    return null; // unresponsive
   }
 }
