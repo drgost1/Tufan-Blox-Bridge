@@ -67,7 +67,7 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 - **Auto-mirror on connect** — opening a published place pulls its script tree to
   `<project>/projects/<Experience>_<universeId>/<Place>_<placeId>/`.
 - **Two-way sync** — edit a local file → Studio updates; edit in Studio → the file updates.
-- **Git per place** — each place folder is its own git repo. The widget has **Auto-commit** / **Auto-push** toggles.
+- **Git per place — opt-in.** Off by default (no `.git`, no commits — just file sync). Flip the widget's **Enable Git & GitHub** master toggle on and each place folder becomes its own git repo with **Commit / Push / Backup / Setup-GitHub** buttons + **Auto-commit / Auto-push** toggles. Your choice persists across Studio restarts.
 - **Disconnect lock** — when the plugin goes offline, the mirror is set read-only (copy-only) until it reconnects.
 - **Cross-place** — with two places open, `copy_script_across` moves a module from one into the other.
 
