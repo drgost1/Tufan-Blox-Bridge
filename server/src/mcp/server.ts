@@ -30,7 +30,7 @@ const WRITE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.5.1" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.6.0" });
 
   // Read-only / safe mode: skip registering every write tool, so the AI only
   // sees inspection tools. Launch with TUFAN_READONLY=1.

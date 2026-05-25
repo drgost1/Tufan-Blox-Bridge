@@ -52,6 +52,65 @@ export interface Session {
 const sessionsById = new Map<string, Session>();
 const placeToSession = new Map<number, string>(); // placeId -> latest sessionId
 
+// ── Proxy mode ──────────────────────────────────────────────────────────────
+// When another Tufan server already owns the bridge + plugin (a concurrent Claude
+// session), this server runs as a PROXY: it forwards dispatch to the owner and
+// reads the place list from the owner (cached). All sessions then share the one
+// plugin, and the owner serializes every command through the single plugin queue
+// → multiple sessions, no collisions. proxyOwner=null means we're the owner.
+type PlaceSummary = {
+  sessionId: string;
+  placeId: number;
+  gameId?: number;
+  placeName: string;
+  root: string;
+  mirrorRoot?: string;
+  lastSeen: number;
+};
+let proxyOwner: string | null = null;
+let proxyPlaces: PlaceSummary[] = [];
+let proxyPoll: NodeJS.Timeout | null = null;
+
+export function setProxyMode(ownerUrl: string | null) {
+  proxyOwner = ownerUrl;
+  if (proxyPoll) {
+    clearInterval(proxyPoll);
+    proxyPoll = null;
+  }
+  if (ownerUrl) {
+    const refresh = async () => {
+      try {
+        const r: any = await fetch(`${ownerUrl}/proxy/places`, { signal: AbortSignal.timeout(2500) }).then((x) => x.json());
+        if (Array.isArray(r?.places)) proxyPlaces = r.places;
+      } catch {
+        /* owner unreachable — keep last list; the bind-retry promotes us if it died */
+      }
+    };
+    void refresh();
+    proxyPoll = setInterval(refresh, 2000);
+  } else {
+    proxyPlaces = [];
+  }
+}
+
+export function isProxy(): boolean {
+  return proxyOwner !== null;
+}
+
+// Unified place list: the owner's live sessions, or (in proxy mode) the cache.
+function allPlaces(): PlaceSummary[] {
+  if (proxyOwner) return proxyPlaces;
+  return [...sessionsById.values()].map((s) => ({
+    sessionId: s.sessionId,
+    placeId: s.placeId,
+    gameId: s.gameId,
+    placeName: s.placeName,
+    root: s.root,
+    mirrorRoot: s.mirrorRoot,
+    lastSeen: s.lastSeen,
+  }));
+}
+
 export interface ReadyInfo {
   sessionId: string;
   placeId: number;
@@ -110,6 +169,11 @@ export function getSession(sessionId: string): Session | undefined {
 }
 
 export function getSessionByPlace(placeId: number): Session | undefined {
+  if (proxyOwner) {
+    // proxy: a cached summary is enough for what tools read (placeId, mirrorRoot, root, name)
+    const p = proxyPlaces.find((x) => x.placeId === placeId);
+    return p ? (p as unknown as Session) : undefined;
+  }
   const sid = placeToSession.get(placeId);
   return sid ? sessionsById.get(sid) : undefined;
 }
@@ -144,7 +208,7 @@ export function startHeartbeat(
 }
 
 export function listPlaces() {
-  return [...sessionsById.values()].map((s) => ({
+  return allPlaces().map((s) => ({
     placeId: s.placeId,
     name: s.placeName,
     gameId: s.gameId,
@@ -156,13 +220,13 @@ export function listPlaces() {
 
 /** The default target place for a tool with no explicit `place`. */
 export function defaultPlaceId(): number | null {
+  const all = allPlaces();
   const primary = process.env.TUFAN_PROJECT;
   if (primary) {
-    for (const s of sessionsById.values()) {
+    for (const s of all) {
       if (s.root.replace(/[\\/]+$/, "") === primary.replace(/[\\/]+$/, "")) return s.placeId;
     }
   }
-  const all = [...sessionsById.values()];
   if (all.length === 1) return all[0].placeId;
   return null;
 }
@@ -185,7 +249,7 @@ export function resolveTargetPlace(place?: string | number): { placeId?: number;
   const sid = getPlaceIdByName(String(place));
   if (sid && getSessionByPlace(Number(sid))) return { placeId: Number(sid) };
   // name among connected sessions
-  for (const s of sessionsById.values()) {
+  for (const s of allPlaces()) {
     if (s.placeName.toLowerCase() === String(place).toLowerCase()) return { placeId: s.placeId };
   }
   return { error: `Place "${place}" is not connected.` };
@@ -198,6 +262,21 @@ export function dispatchTo(
   args: Record<string, unknown> = {},
   timeoutMs = 30_000,
 ): Promise<unknown> {
+  // Proxy mode: forward to the owner, which runs it through the single plugin
+  // queue (serialized with every other session's commands → no collisions).
+  if (proxyOwner) {
+    return fetch(`${proxyOwner}/proxy/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placeId, op, args, timeoutMs }),
+      signal: AbortSignal.timeout(timeoutMs + 5000),
+    })
+      .then((r) => r.json() as Promise<{ ok: boolean; result?: unknown; error?: string }>)
+      .then((j) => {
+        if (j.ok) return j.result;
+        throw new Error(j.error ?? "proxy dispatch failed");
+      });
+  }
   const session = getSessionByPlace(placeId);
   if (!session) {
     return Promise.reject(new Error(`Place ${placeId} is not connected.`));

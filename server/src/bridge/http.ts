@@ -10,6 +10,8 @@ import {
   touch,
   nextCommandFor,
   resolveResponse,
+  dispatchTo,
+  setProxyMode,
 } from "./sessions.js";
 import { BRIDGE_PORT } from "./protocol.js";
 import { runtimeConfig, setConfig } from "../config.js";
@@ -218,6 +220,33 @@ export function startBridge(writerOpts: WriterOptions) {
     }
   });
 
+  // ---- Proxy: let concurrent Tufan sessions share THIS owner's plugin --------
+  // A proxy session forwards its tool dispatches here; we run them through the
+  // single plugin queue (serialized with everyone else's → no collisions).
+  app.post("/proxy/dispatch", async (req, res) => {
+    const { placeId, op, args, timeoutMs } = req.body ?? {};
+    if (typeof placeId !== "number" || !op) return res.json({ ok: false, error: "missing placeId/op" });
+    try {
+      const result = await dispatchTo(placeId, op, args ?? {}, typeof timeoutMs === "number" ? timeoutMs : 30_000);
+      res.json({ ok: true, result });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+  app.get("/proxy/places", (_req, res) => {
+    res.json({
+      places: listSessions().map((s) => ({
+        sessionId: s.sessionId,
+        placeId: s.placeId,
+        gameId: s.gameId,
+        placeName: s.placeName,
+        root: s.root,
+        mirrorRoot: s.mirrorRoot,
+        lastSeen: s.lastSeen,
+      })),
+    });
+  });
+
   app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true, sessions: listSessions().length }));
 
   // Let a newer instance ask this one to step down (used for self-healing below).
@@ -227,11 +256,13 @@ export function startBridge(writerOpts: WriterOptions) {
     setTimeout(() => process.exit(0), 100);
   });
 
-  let dormantLogged = false;
+  const OWNER_URL = `http://127.0.0.1:${BRIDGE_PORT}`;
+  let modeLogged = false;
   const startListening = () => {
     const server = app.listen(BRIDGE_PORT, "127.0.0.1", () => {
-      log(`bridge listening on http://127.0.0.1:${BRIDGE_PORT}`);
-      dormantLogged = false; // we became owner (possibly after a handoff)
+      log(`bridge listening on ${OWNER_URL} (owner)`);
+      setProxyMode(null); // we own the bridge + plugin (also covers promotion after an owner died)
+      modeLogged = false;
     });
 
     server.on("error", async (err: NodeJS.ErrnoException) => {
@@ -239,26 +270,26 @@ export function startBridge(writerOpts: WriterOptions) {
         log(`bridge server error: ${err.message}`);
         process.exit(1);
       }
-      // Port is taken. CRUCIAL: never shut down whoever owns it — that was the
-      // multi-session bug (a new session killing a live one). Instead stay DORMANT
-      // and retry. When the owner's Claude session ends, its server exits on stdio
-      // close (below) and frees the port; we then take over and the plugin
-      // reconnects here automatically. Graceful handoff, zero disconnects.
-      if (!dormantLogged) {
-        dormantLogged = true;
-        const holder = await probeHolder();
-        if (holder?.isTufan) {
-          log(
-            `another Tufan-Blox-Bridge session owns the Studio bridge on ${BRIDGE_PORT}` +
-              (holder.sessions ? ` (${holder.sessions} place(s) connected)` : "") +
-              `. Staying dormant — Studio belongs to that session until it closes, then this ` +
-              `one takes over. This session's Studio tools are inactive meanwhile.`,
-          );
-        } else {
+      // Port is taken — figure out by whom. NEVER shut down the owner.
+      const holder = await probeHolder();
+      if (holder?.isTufan) {
+        // Another live Tufan session owns the plugin. Run as a PROXY: forward our
+        // dispatch to it, share the place list. All sessions work CONCURRENTLY —
+        // the owner serializes every command through the single plugin queue, so
+        // no collisions. We keep retrying the bind so we promote to owner if it closes.
+        setProxyMode(OWNER_URL);
+        if (!modeLogged) {
+          modeLogged = true;
+          log(`another Tufan session owns the bridge — running as PROXY (forwarding to it). Studio tools work concurrently; will take over if it closes.`);
+        }
+      } else {
+        setProxyMode(null);
+        if (!modeLogged) {
+          modeLogged = true;
           log(`port ${BRIDGE_PORT} held by ${holder === null ? "an unresponsive process" : "another app"}; retrying. Studio unaffected.`);
         }
       }
-      setTimeout(startListening, 12_000); // periodic retry → takes over when the port frees
+      setTimeout(startListening, 12_000); // retry → promote to owner when the port frees
     });
   };
   startListening();
