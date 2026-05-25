@@ -82,7 +82,19 @@ export function registerInstanceTools(server: McpServer) {
         place: placeArg,
       },
     },
-    async ({ parentPath, tree, place }) => runStudio("createTree", { parentPath, tree }, (r) => `Built ${r.created} instance(s); root ${r.path}`, place),
+    async ({ parentPath, tree, place }) => {
+      // MCP clients often serialize a nested `any` argument as a JSON STRING.
+      // Parse it back to an object so the plugin receives a real table.
+      let spec = tree;
+      if (typeof spec === "string") {
+        try {
+          spec = JSON.parse(spec);
+        } catch {
+          /* not JSON — pass through; plugin reports an invalid spec */
+        }
+      }
+      return runStudio("createTree", { parentPath, tree: spec }, (r) => `Built ${r.created} instance(s); root ${r.path}`, place);
+    },
   );
 
   server.registerTool(

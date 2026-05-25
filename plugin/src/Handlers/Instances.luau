@@ -143,7 +143,13 @@ return function(register)
 				end
 				return inst
 			end
-			local root = build(args.tree, parent)
+			-- Defensive: some MCP clients pass the nested spec as a JSON string.
+			local spec = args.tree
+			if type(spec) == "string" then
+				local ok, decoded = pcall(function() return game:GetService("HttpService"):JSONDecode(spec) end)
+				if ok then spec = decoded end
+			end
+			local root = build(spec, parent)
 			if not root then error("invalid tree spec (need { className, ... })") end
 			return { path = Serialize.uniquePath(root), created = created }
 		end)
