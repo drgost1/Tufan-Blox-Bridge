@@ -79,6 +79,51 @@ return function(register)
 		return { scripts = scripts }
 	end)
 
+	-- Line-range edit primitive. Replaces lines [startLine..endLine] (1-indexed,
+	-- inclusive) with newText. Backs edit/insert/delete:
+	--   replace : startLine..endLine -> newText
+	--   insert  : endLine = startLine-1 (empty range) -> newText before startLine
+	--   delete  : newText = "" / nil
+	-- Avoids re-sending the whole source for small changes (faster, less clobber).
+	register("editScriptLines", function(args)
+		local inst, err = Serialize.resolve(args.path)
+		if not inst then error(err) end
+		if not inst:IsA("LuaSourceContainer") then error(args.path .. " is not a script") end
+
+		local lines = {}
+		for line in (inst.Source .. "\n"):gmatch("(.-)\n") do
+			table.insert(lines, line)
+		end
+		local total = #lines
+
+		local s = args.startLine or 1
+		local e = args.endLine
+		if e == nil then e = s - 1 end -- pure insertion before startLine
+		if s < 1 then s = 1 end
+		if e > total then e = total end
+		if e < s - 1 then e = s - 1 end
+
+		local out = {}
+		for i = 1, math.min(s - 1, total) do
+			out[#out + 1] = lines[i]
+		end
+		if args.newText and args.newText ~= "" then
+			for line in (args.newText .. "\n"):gmatch("(.-)\n") do
+				out[#out + 1] = line
+			end
+		end
+		for i = e + 1, total do
+			out[#out + 1] = lines[i]
+		end
+
+		local newSrc = table.concat(out, "\n")
+		local ok = pcall(function()
+			ScriptEditorService:UpdateSourceAsync(inst, function() return newSrc end)
+		end)
+		if not ok then inst.Source = newSrc end
+		return { ok = true, lineCount = #out }
+	end)
+
 	register("findAndReplace", function(args)
 		-- args: find (plain text), replace, dryRun (bool)
 		local find = args.find

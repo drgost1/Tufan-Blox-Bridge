@@ -14,9 +14,10 @@ import { registerPlaceTools } from "./tools/places.js";
 import { registerSelectionTools } from "./tools/selection.js";
 import { registerTagTools } from "./tools/tags.js";
 import { registerSecurityTools } from "./tools/security.js";
+import { registerHttpTools } from "./tools/http.js";
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.2.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.2.4" });
 
   // Round-trip health check.
   server.registerTool(
@@ -42,6 +43,7 @@ export function createServer(): McpServer {
   registerSelectionTools(server);
   registerTagTools(server);
   registerSecurityTools(server);
+  registerHttpTools(server);
 
   return server;
 }

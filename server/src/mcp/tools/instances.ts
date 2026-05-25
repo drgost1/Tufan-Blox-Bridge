@@ -42,4 +42,58 @@ export function registerInstanceTools(server: McpServer) {
     { description: "Rename the instance at path.", inputSchema: { path: z.string(), newName: z.string(), place: placeArg } },
     async ({ path, newName, place }) => runStudio("renameInstance", { path, newName }, (r) => `Renamed to ${r.path}`, place),
   );
+
+  server.registerTool(
+    "mass_create",
+    {
+      description: "Create MANY instances in one call + one undo entry. Far fewer round-trips than N create_instance calls.",
+      inputSchema: {
+        items: z.array(
+          z.object({
+            className: z.string(),
+            parentPath: z.string(),
+            name: z.string().optional(),
+            properties: z.record(z.any()).optional(),
+          }),
+        ),
+        place: placeArg,
+      },
+    },
+    async ({ items, place }) => runStudio("massCreate", { items }, (r) => `Created ${r.created} instance(s)`, place),
+  );
+
+  server.registerTool(
+    "mass_duplicate",
+    {
+      description: "Clone the instance at path `count` times (into its parent, or parentPath). One undo entry.",
+      inputSchema: { path: z.string(), count: z.number().describe("how many copies"), parentPath: z.string().optional(), place: placeArg },
+    },
+    async ({ path, count, parentPath, place }) => runStudio("massDuplicate", { path, count, parentPath }, (r) => `Made ${r.created} copies`, place),
+  );
+
+  server.registerTool(
+    "create_tree",
+    {
+      description:
+        "Build a whole nested instance subtree from ONE spec, in one call + one undo. Ideal for UIs (a panel + all its children at once). tree = { className, name?, properties?, children?: [tree, ...] }.",
+      inputSchema: {
+        parentPath: z.string(),
+        tree: z.any().describe("{ className, name?, properties?, children?: [...] } — nested instance spec"),
+        place: placeArg,
+      },
+    },
+    async ({ parentPath, tree, place }) => runStudio("createTree", { parentPath, tree }, (r) => `Built ${r.created} instance(s); root ${r.path}`, place),
+  );
+
+  server.registerTool(
+    "undo",
+    { description: "Undo the last change in Studio (ChangeHistoryService).", inputSchema: { place: placeArg } },
+    async ({ place }) => runStudio("undo", {}, () => "Undone", place),
+  );
+
+  server.registerTool(
+    "redo",
+    { description: "Redo the last undone change in Studio.", inputSchema: { place: placeArg } },
+    async ({ place }) => runStudio("redo", {}, () => "Redone", place),
+  );
 }
