@@ -33,7 +33,7 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 Two parts that talk over a local HTTP bridge:
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client (Claude Code, Cursor) connects to. Exposes 64 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client (Claude Code, Cursor) connects to. Exposes 66 tools (or read-only inspection tools with `TUFAN_READONLY=1`).
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes the commands.
 
 Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + two-way sync + git + security scanning** in one tool, across one or more open places.
@@ -45,7 +45,7 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 - **Global:** `npm i -g tufan-blox-bridge` (then command `tufan-blox-bridge`).
 - **Plugin manually:** download `TufanBloxBridge.rbxm` from [Releases](https://github.com/drgost1/Tufan-Blox-Bridge/releases) → drop in your Roblox Plugins folder; or build it with `pwsh scripts/build-plugin.ps1 -Install`.
 
-## Tools (64)
+## Tools (66)
 
 - **Scripts** — get/set source, **line-level edit/insert/delete**, grep, script tree, project-wide find-and-replace
 - **Instances** — create / delete / clone / move / rename, **mass_create**, **mass_duplicate**, **create_tree** (whole nested subtree in one call), **undo / redo**
@@ -54,7 +54,7 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 - **Tree** — children, descendants, search (matchMode + caseSensitive), services, selection
 - **Luau** — `run_luau` (captures return + prints)
 - **Logs** — output / playtest output (continuous buffer)
-- **Assets** — search, details, insert (flags script-bearing models)
+- **Assets** — search, details, **get_asset_thumbnail** (see the asset as a PNG), insert (flags script-bearing models), **search_materials**
 - **Git** (12) — status / commit / log / diff / restore / branch / **show** / **revert** / **recover** (get a deleted file back) / **remote** / **push** / **pull**
 - **Security** — 🛡️ `scan_backdoors` (require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, hidden binary attributes/Values) + `list_studio_plugins`
 - **Multi-place** — `list_places`, `copy_script_across`, `pull_place`
@@ -81,7 +81,7 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 
 ## Status
 
-Solid + tested: AI tools, script sync, git, the scanner, multi-place. **WIP:** non-script instance mirroring (models/parts as files — geometry stays in Studio by reference, a Roblox plugin limit), and UUID-suffixing for same-named sibling scripts (they currently collapse).
+Solid + tested: AI tools, script sync, git, the scanner, multi-place, screenshots. **WIP:** non-script instance mirroring (models/parts as files — geometry stays in Studio by reference, a Roblox plugin limit). Same-named sibling scripts disambiguate with ` (N)` suffixes (fixed v0.1.2). Real playtest start/stop has no clean plugin API — pair with the official MCP for that.
 
 ## Repo
 
