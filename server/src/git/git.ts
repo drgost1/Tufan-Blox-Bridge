@@ -153,6 +153,41 @@ export async function pull(root: string): Promise<string> {
   return `Pulled — ${r.summary.changes} changed, +${r.summary.insertions} -${r.summary.deletions}`;
 }
 
+/** Add or re-point 'origin' to a URL (upsert) — backs the widget's Setup GitHub button. */
+export async function setRemoteOrigin(root: string, url: string): Promise<string> {
+  const g = gitFor(root);
+  const remotes = await g.getRemotes(true).catch(() => []);
+  if (remotes.some((r) => r.name === "origin")) {
+    await g.remote(["set-url", "origin", url]);
+    return `origin → ${url} (updated)`;
+  }
+  await g.addRemote("origin", url);
+  return `origin → ${url} (added). Push to back up off-machine.`;
+}
+
+/** One-line status for the widget: branch, dirty count, remote, last commit. */
+export async function info(
+  root: string,
+): Promise<{ branch: string; dirty: number; remote: string | null; lastCommit: string }> {
+  const g = gitFor(root);
+  const s = await g.status();
+  let remote: string | null = null;
+  try {
+    const o = (await g.getRemotes(true)).find((r) => r.name === "origin");
+    remote = o?.refs?.fetch ?? null;
+  } catch {
+    /* none */
+  }
+  let lastCommit = "(no commits yet)";
+  try {
+    const l = await g.log({ maxCount: 1 });
+    if (l.latest) lastCommit = `${l.latest.hash.slice(0, 7)} ${l.latest.message}`.slice(0, 64);
+  } catch {
+    /* empty repo */
+  }
+  return { branch: s.current ?? "(detached)", dirty: s.files.length, remote, lastCommit };
+}
+
 export async function branch(root: string, name?: string): Promise<string> {
   const g = gitFor(root);
   if (!name) {

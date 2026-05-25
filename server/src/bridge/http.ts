@@ -13,6 +13,8 @@ import {
 } from "./sessions.js";
 import { BRIDGE_PORT } from "./protocol.js";
 import { runtimeConfig, setConfig } from "../config.js";
+import * as git from "../git/git.js";
+import { pullPlace } from "../sync/pull.js";
 import { log } from "../util/log.js";
 
 export function startBridge(writerOpts: WriterOptions) {
@@ -92,6 +94,93 @@ export function startBridge(writerOpts: WriterOptions) {
     setConfig(req.body ?? {});
     log(`config: autoCommit=${runtimeConfig.autoCommit} autoPush=${runtimeConfig.autoPush}`);
     res.json(runtimeConfig);
+  });
+
+  // ---- Git action buttons (plugin widget) ----------------------------------
+  // Resolve the connected place's mirror repo from a sessionId (or the sole place).
+  const sessionFor = (sessionId?: string) => {
+    if (sessionId) return getSession(sessionId);
+    const all = listSessions();
+    return all.length === 1 ? all[0] : undefined;
+  };
+  const gitRootFor = (sessionId?: string): string | null => {
+    const s = sessionFor(sessionId);
+    return s?.mirrorRoot ?? null;
+  };
+
+  app.post("/git/commit", async (req, res) => {
+    const root = gitRootFor(req.body?.sessionId);
+    if (!root) return res.json({ ok: false, error: "no connected place mirror to commit" });
+    try {
+      const msg = (req.body?.message as string) || `manual commit — ${new Date().toISOString().slice(0, 19).replace("T", " ")}`;
+      res.json({ ok: true, message: await git.commit(root, msg) });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
+  app.post("/git/push", async (req, res) => {
+    const root = gitRootFor(req.body?.sessionId);
+    if (!root) return res.json({ ok: false, error: "no connected place mirror" });
+    try {
+      res.json({ ok: true, message: await git.push(root) });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
+  // Backup now = commit any changes, then push (best-effort push).
+  app.post("/git/backup", async (req, res) => {
+    const root = gitRootFor(req.body?.sessionId);
+    if (!root) return res.json({ ok: false, error: "no connected place mirror" });
+    try {
+      const committed = await git.commit(root, `backup — ${new Date().toISOString().slice(0, 19).replace("T", " ")}`);
+      let pushed = "";
+      try {
+        pushed = " · " + (await git.push(root));
+      } catch (e) {
+        pushed = " · push skipped (" + (e as Error).message.split("\n")[0] + ")";
+      }
+      res.json({ ok: true, message: committed + pushed });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
+  // Setup GitHub = add/point 'origin' at a repo URL (upserts).
+  app.post("/git/remote", async (req, res) => {
+    const root = gitRootFor(req.body?.sessionId);
+    if (!root) return res.json({ ok: false, error: "no connected place mirror" });
+    const url = req.body?.url as string;
+    if (!url) return res.json({ ok: false, error: "repo URL required" });
+    try {
+      res.json({ ok: true, message: await git.setRemoteOrigin(root, url) });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
+  // Re-pull the live Studio script tree into the mirror (refresh).
+  app.post("/git/repull", async (req, res) => {
+    const s = sessionFor(req.body?.sessionId);
+    if (!s?.mirrorRoot) return res.json({ ok: false, error: "no connected place mirror" });
+    try {
+      const n = await pullPlace(s);
+      res.json({ ok: true, message: `re-pulled ${n} script(s)` });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
+  });
+
+  // Status line for the widget: branch, dirty count, remote, last commit.
+  app.get("/git/info", async (req, res) => {
+    const root = gitRootFor(String(req.query.session ?? ""));
+    if (!root) return res.json({ ok: false, error: "no connected place mirror" });
+    try {
+      res.json({ ok: true, ...(await git.info(root)) });
+    } catch (e) {
+      res.json({ ok: false, error: (e as Error).message });
+    }
   });
 
   app.get("/", (_req, res) => res.json({ name: "tufan-blox-bridge", ok: true }));

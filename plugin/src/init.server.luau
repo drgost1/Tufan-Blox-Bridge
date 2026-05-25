@@ -16,7 +16,7 @@ local UI = require(script.UI)
 
 local ctx = { sessionId = HttpService:GenerateGUID(false) }
 
-local ui = UI.start(plugin)
+local ui = UI.start(plugin, ctx)
 ui.pushActivity("plugin loaded — connecting to server")
 
 local watcher = ScriptWatcher.new(ctx.sessionId, function(msg) ui.pushActivity(msg) end)
@@ -39,4 +39,4 @@ plugin.Unloading:Connect(function()
 	watcher:stop()
 end)
 
-print("[TufanBloxBridge] plugin v0.2.5 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")
+print("[TufanBloxBridge] plugin v0.3.0 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")
