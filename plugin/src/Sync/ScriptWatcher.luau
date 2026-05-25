@@ -21,7 +21,10 @@ ScriptWatcher.__index = ScriptWatcher
 
 local DEBOUNCE = 0.3 -- source-edit coalesce
 local RECONCILE_DEBOUNCE = 0.25 -- coalesce a burst of structural events
-local RECONCILE_INTERVAL = 4 -- periodic safety-net sweep (seconds)
+local RECONCILE_INTERVAL = 20 -- periodic safety-net sweep (seconds). Event signals
+-- (DescendantAdded/Removing + per-script Name/Ancestry) drive instant reconciles;
+-- this only catches the rare no-signal case (e.g. renaming a Folder of scripts),
+-- so it can be infrequent — keeps idle CPU low on large places.
 
 function ScriptWatcher.new(sessionId, activity)
 	return setmetatable({
@@ -73,11 +76,12 @@ end
 -- Snapshot every script's current unique path -> instance.
 function ScriptWatcher:_collect()
 	local map = {}
-	for _, d in ipairs(game:GetDescendants()) do
+	-- single O(n) pass instead of uniquePath() per script (~O(n²) on wide trees)
+	Serialize.forEachDescendantPath(game, function(d, path)
 		if d:IsA("LuaSourceContainer") then
-			map[Serialize.uniquePath(d)] = d
+			map[path] = d
 		end
-	end
+	end)
 	return map
 end
 

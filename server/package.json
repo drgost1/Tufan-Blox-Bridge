@@ -1,6 +1,6 @@
 {
   "name": "tufan-blox-bridge",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "MCP server for Roblox Studio AI-driven development — scripts, instances, properties, Luau execution, two-way file sync, and git history.",
   "type": "module",
   "bin": {

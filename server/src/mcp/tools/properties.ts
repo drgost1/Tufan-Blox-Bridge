@@ -32,6 +32,20 @@ export function registerPropertyTools(server: McpServer) {
   );
 
   server.registerTool(
+    "mass_edit",
+    {
+      description:
+        "Apply MANY different property edits in ONE call (and one undo entry): edits = [{path, name, value}, ...]. Use this instead of many set_property calls — far fewer round-trips (Roblox HttpService caps ~500 req/min, so bulk single-edits throttle).",
+      inputSchema: {
+        edits: z.array(z.object({ path: z.string(), name: z.string(), value: z.any() })),
+        place: placeArg,
+      },
+    },
+    async ({ edits, place }) =>
+      runStudio("massEdit", { edits }, (r) => `Applied ${r.applied} edit(s)${r.failed ? `, ${r.failed} failed` : ""}`, place),
+  );
+
+  server.registerTool(
     "search_by_property",
     {
       description: "Find instances under rootPath whose property equals value.",

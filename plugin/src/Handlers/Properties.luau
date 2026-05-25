@@ -72,14 +72,36 @@ return function(register)
 		if not root then error(err) end
 		local want = Serialize.decodeValue(args.value)
 		local paths = {}
-		for _, d in ipairs(root:GetDescendants()) do
+		Serialize.forEachDescendantPath(root, function(d, path)
 			local ok, value = pcall(function() return d[args.name] end)
 			if ok and value == want then
-				table.insert(paths, Serialize.uniquePath(d))
-				if #paths >= 500 then break end
+				table.insert(paths, path)
+				if #paths >= 500 then return false end
+			end
+		end)
+		return { paths = paths }
+	end)
+
+	-- Batch arbitrary edits in ONE round-trip + ONE undo entry: edits = list of
+	-- { path, name, value }. Far fewer HTTP requests than N separate setProperty
+	-- calls (Roblox HttpService is ~500 req/min — bulk edits hit that fast).
+	register("massEdit", function(args)
+		local edits = args.edits or {}
+		local applied, failed = 0, 0
+		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass edit (" .. #edits .. ")")
+		for _, e in ipairs(edits) do
+			local inst = e.path and Serialize.resolve(e.path)
+			if inst then
+				local ok = pcall(function() inst[e.name] = Serialize.decodeValue(e.value) end)
+				if ok then applied += 1 else failed += 1 end
+			else
+				failed += 1
 			end
 		end
-		return { paths = paths }
+		if recordingId then
+			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+		end
+		return { applied = applied, failed = failed }
 	end)
 
 	register("getAttributes", function(args)

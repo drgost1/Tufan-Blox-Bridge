@@ -17,14 +17,13 @@ return function(register)
 		if not inst then error(err) end
 		local maxDepth = args.maxDepth or 5
 		local out = {}
-		local rootDepth = #string.split(Serialize.uniquePath(inst), ".")
-		for _, d in ipairs(inst:GetDescendants()) do
-			local depth = #string.split(Serialize.uniquePath(d), ".") - rootDepth
+		-- single O(n) pass: path + depth come straight from the traversal
+		Serialize.forEachDescendantPath(inst, function(d, path, depth)
 			if depth <= maxDepth then
-				table.insert(out, { path = Serialize.uniquePath(d), className = d.ClassName, depth = depth })
-				if #out >= 2000 then break end
+				table.insert(out, { path = path, className = d.ClassName, depth = depth })
+				if #out >= 2000 then return false end
 			end
-		end
+		end)
 		return { descendants = out }
 	end)
 
@@ -59,13 +58,16 @@ return function(register)
 		local CAP = 200
 		local paths = {}
 		local truncated = false
-		for _, d in ipairs(root:GetDescendants()) do
+		Serialize.forEachDescendantPath(root, function(d, path)
 			local classOk = (not classFilter) or d:IsA(classFilter)
 			if classOk and nameMatches(d.Name) then
-				table.insert(paths, Serialize.uniquePath(d))
-				if #paths >= CAP then truncated = true; break end
+				table.insert(paths, path)
+				if #paths >= CAP then
+					truncated = true
+					return false
+				end
 			end
-		end
+		end)
 		return { paths = paths, truncated = truncated }
 	end)
 

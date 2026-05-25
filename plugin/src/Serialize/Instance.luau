@@ -55,6 +55,41 @@ function Serialize.uniquePath(inst: Instance): string
 	return table.concat(segs, ".")
 end
 
+-- Single-pass O(n) descendant traversal that builds each node's disambiguated
+-- path the SAME way uniquePath does — but top-down, without the per-node walk up
+-- the ancestor chain (uniquePath is O(depth × siblings) per call; calling it for
+-- every descendant is ~O(n²) on wide trees). Calls visit(inst, path, depth) for
+-- each descendant of `root` (root excluded); depth = 1 for direct children.
+-- Return false from `visit` to stop the whole traversal early (cheap caps).
+function Serialize.forEachDescendantPath(root: Instance, visit: (Instance, string, number) -> boolean?)
+	local rootPath = (root == game) and "" or Serialize.uniquePath(root)
+	local stopped = false
+	local function recurse(parent: Instance, parentPath: string, depth: number)
+		local children = parent:GetChildren()
+		-- count each name first so we know which need a " (N)" suffix
+		local total = {}
+		for _, c in ipairs(children) do
+			total[c.Name] = (total[c.Name] or 0) + 1
+		end
+		local seen = {}
+		for _, c in ipairs(children) do
+			if stopped then return end
+			local name = c.Name
+			local k = (seen[name] or 0) + 1
+			seen[name] = k
+			-- first same-named sibling keeps the bare name; rest get " (k)"
+			local seg = (total[name] > 1 and k > 1) and (name .. " (" .. k .. ")") or name
+			local path = parentPath == "" and seg or (parentPath .. "." .. seg)
+			if visit(c, path, depth) == false then
+				stopped = true
+				return
+			end
+			recurse(c, path, depth + 1)
+		end
+	end
+	recurse(root, rootPath, 1)
+end
+
 -- Resolve a dotted path like "ServerScriptService.MusicService" or
 -- "game.Workspace.Part" or "Workspace.Birds.Hawk_FlightPath01 (3).Script".
 function Serialize.resolve(path: string): (Instance?, string?)
