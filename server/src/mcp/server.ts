@@ -26,11 +26,11 @@ const WRITE_TOOLS = new Set([
   "set_script_source", "edit_script_lines", "insert_script_lines", "delete_script_lines", "find_and_replace_in_scripts",
   "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
-  "start_playtest", "stop_playtest",
+  "start_playtest", "stop_playtest", "pause_playtest",
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.5.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.5.1" });
 
   // Read-only / safe mode: skip registering every write tool, so the AI only
   // sees inspection tools. Launch with TUFAN_READONLY=1.

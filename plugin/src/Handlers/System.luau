@@ -1,5 +1,8 @@
 --!nocheck
--- ping/meta + honest stubs for capabilities Roblox does not expose to plugins.
+-- ping/meta + playtest (Run-mode) control. RunService:Run/Stop/Pause are
+-- PluginSecurity, so a plugin CAN drive the Studio simulation. Run mode runs in
+-- the SAME DataModel (no forked play session), so run_luau + get_playtest_output
+-- keep working during a run — the automated build→test→inspect→fix loop.
 
 local RunService = game:GetService("RunService")
 
@@ -14,20 +17,42 @@ return function(register, ctx)
 	end)
 
 	register("isRunning", function()
-		return { running = RunService:IsRunning() }
+		return { running = RunService:IsRunning(), runMode = RunService:IsRunMode() }
 	end)
 
-	-- No supported plugin API starts/stops a playtest. Be honest rather than fake.
+	-- Start "Run" mode: server scripts + physics, no player character. (Full Play
+	-- Solo / F5 has no plugin API — that one is still manual.)
 	register("startPlaytest", function()
-		error("start_playtest is not supported: Roblox provides no plugin API to start Play mode. Press F5 in Studio.")
-	end)
-	register("stopPlaytest", function()
-		error("stop_playtest is not supported: Roblox provides no plugin API to stop Play mode. Press Shift+F5 in Studio.")
+		if RunService:IsRunning() then
+			return { running = true, note = "already running" }
+		end
+		local ok, err = pcall(function() RunService:Run() end)
+		if not ok then
+			error("could not start Run mode: " .. tostring(err))
+		end
+		return {
+			running = true,
+			mode = "run",
+			note = "Run mode started (server scripts + physics, no player character). run_luau + get_playtest_output work during the run. Full Play Solo (F5) has no plugin API — start that manually.",
+		}
 	end)
 
-	-- CaptureService returns a temp content id, not pixels readable in Luau, so
-	-- we can't return base64 image data from a plugin. Honest stub.
-	register("captureScreenshot", function()
-		error("capture_screenshot is not yet supported: Roblox does not expose viewport pixels to plugins. Planned via a different mechanism.")
+	register("stopPlaytest", function()
+		if not RunService:IsRunning() then
+			return { running = false, note = "not running" }
+		end
+		local ok, err = pcall(function() RunService:Stop() end)
+		if not ok then
+			error("could not stop simulation: " .. tostring(err))
+		end
+		return { running = false, note = "simulation stopped" }
+	end)
+
+	register("pausePlaytest", function()
+		local ok, err = pcall(function() RunService:Pause() end)
+		if not ok then
+			error("could not pause simulation: " .. tostring(err))
+		end
+		return { paused = true, note = "simulation paused (resume by starting again / Stop to end)" }
 	end)
 end
