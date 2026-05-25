@@ -61,6 +61,34 @@ lists what's installed, surfacing the remote-code-plugin vector (e.g. the UITool
 plugin that bit this project). Reading a *compiled* installed plugin's source from
 another plugin remains impossible in Roblox; documented in the tool.
 
+### H6 · Main-thread starvation → false "plugin unresponsive" / disconnect &nbsp; ✅ Fixed (v0.6.1)
+The real workflow blocker from the Chomolokko build: ~7 episodes of
+`Plugin (place …) did not respond within 30000ms` / `No Studio place is connected`,
+clustered around **heavy single ops** (an 8,000-part edit, large mass-sets) and a
+**concurrent Play client**. v0.2.0's M6 fixed multi-session port disconnect — but
+not this. Root cause: the plugin runs on Studio's **single main thread**. The poll
+loop already `task.spawn`s each handler, but Luau `task.spawn` is cooperative, not
+parallel — a handler that loops over thousands of instances **without yielding**
+monopolizes the VM, so the loop's next `GET /poll` can't fire. The server then
+(a) marks the session stale after 15s (`startHeartbeat`) → "No place connected",
+and (b) rejects the in-flight command at the 30s `dispatchTo` timeout. One long
+non-yielding op trips both; a running Play client starves the edit-mode plugin
+further. Three-part fix:
+- **Server — pending-aware heartbeat** (`sessions.ts`): a session with an in-flight
+  command is *busy*, not dead — `alive = … || s.pending.size > 0`. Kills the false
+  disconnect during any long op (including `run_luau`, which the plugin can't chunk).
+- **Server — generous default command timeout** (`sessions.ts`): 30s → 90s
+  (`DEFAULT_TIMEOUT_MS`), still per-call overridable. Legit heavy ops finish instead
+  of erroring at 30s.
+- **Plugin — yielding mass loops** (`Handlers/Properties.luau`, `Handlers/Instances.luau`):
+  `massSetProperty` / `massEdit` / `massCreate` / `massDuplicate` / `createTree` now
+  `task.wait()` every 250 items, so the poll loop breathes mid-batch and the session
+  stays live.
+
+  _Caller discipline still matters for `run_luau`_: arbitrary user code can't be
+  auto-chunked — batch big edits (≤1,000) with a `task.wait()`/`RunService.Heartbeat:Wait()`
+  between chunks, and don't run a Play client while building via MCP in edit mode.
+
 ---
 
 ## 🟡 Medium

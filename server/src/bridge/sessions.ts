@@ -195,7 +195,11 @@ export function startHeartbeat(
   setInterval(() => {
     const now = Date.now();
     for (const s of sessionsById.values()) {
-      const alive = now - s.lastSeen < staleMs;
+      // A session with an in-flight command is busy executing a heavy op — the
+      // plugin VM is single-threaded, so it can't poll mid-op. That's "busy",
+      // not "dead". Treat pending work as alive to avoid a false disconnect
+      // ("No Studio place is connected") during a long mass-edit / run_luau.
+      const alive = now - s.lastSeen < staleMs || s.pending.size > 0;
       if (s.connected && !alive) {
         s.connected = false;
         hooks.onDisconnect?.(s);
@@ -256,11 +260,18 @@ export function resolveTargetPlace(place?: string | number): { placeId?: number;
 }
 
 /** Send an op to a specific place and await its result. */
+// Default command timeout. Generous because a legitimately heavy op (mass edit
+// over thousands of parts, a big run_luau loop) can take well over 30s and the
+// plugin can only POST /response once it finishes. A per-tool call can still
+// override via the timeoutMs arg. Combined with the pending-aware heartbeat
+// above, a slow op no longer false-disconnects OR prematurely errors.
+const DEFAULT_TIMEOUT_MS = 90_000;
+
 export function dispatchTo(
   placeId: number,
   op: string,
   args: Record<string, unknown> = {},
-  timeoutMs = 30_000,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<unknown> {
   // Proxy mode: forward to the owner, which runs it through the single plugin
   // queue (serialized with every other session's commands → no collisions).

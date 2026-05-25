@@ -2,6 +2,13 @@
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+-- Yield every N items inside big batches. The plugin runs on Studio's single
+-- main thread; a multi-thousand-item loop with no yield starves the poll loop
+-- (same thread) past the server's liveness window → false "plugin unresponsive"
+-- + disconnect. A bare task.wait() hands a frame back so the next /poll fires,
+-- keeping the session alive. The batch still completes; it just breathes.
+local YIELD_EVERY = 250
+
 -- Roblox has no reflection for "all properties"; when names aren't given we
 -- return identity + attributes + a best-effort common set read via pcall.
 local COMMON = {
@@ -54,12 +61,13 @@ return function(register)
 	register("massSetProperty", function(args)
 		local count = 0
 		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass set " .. args.name)
-		for _, path in ipairs(args.paths) do
+		for i, path in ipairs(args.paths) do
 			local inst = Serialize.resolve(path)
 			if inst then
 				local ok = pcall(function() inst[args.name] = Serialize.decodeValue(args.value) end)
 				if ok then count += 1 end
 			end
+			if i % YIELD_EVERY == 0 then task.wait() end
 		end
 		if recordingId then
 			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
@@ -89,7 +97,7 @@ return function(register)
 		local edits = args.edits or {}
 		local applied, failed = 0, 0
 		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass edit (" .. #edits .. ")")
-		for _, e in ipairs(edits) do
+		for i, e in ipairs(edits) do
 			local inst = e.path and Serialize.resolve(e.path)
 			if inst then
 				local ok = pcall(function() inst[e.name] = Serialize.decodeValue(e.value) end)
@@ -97,6 +105,7 @@ return function(register)
 			else
 				failed += 1
 			end
+			if i % YIELD_EVERY == 0 then task.wait() end
 		end
 		if recordingId then
 			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)

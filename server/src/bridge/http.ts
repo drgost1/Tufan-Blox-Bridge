@@ -227,7 +227,7 @@ export function startBridge(writerOpts: WriterOptions) {
     const { placeId, op, args, timeoutMs } = req.body ?? {};
     if (typeof placeId !== "number" || !op) return res.json({ ok: false, error: "missing placeId/op" });
     try {
-      const result = await dispatchTo(placeId, op, args ?? {}, typeof timeoutMs === "number" ? timeoutMs : 30_000);
+      const result = await dispatchTo(placeId, op, args ?? {}, typeof timeoutMs === "number" ? timeoutMs : undefined);
       res.json({ ok: true, result });
     } catch (e) {
       res.json({ ok: false, error: (e as Error).message });

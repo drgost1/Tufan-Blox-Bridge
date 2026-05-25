@@ -2,6 +2,10 @@
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 
+-- Yield every N built/cloned instances so a big batch doesn't starve the single
+-- main thread (and with it the poll loop → false "unresponsive"/disconnect).
+local YIELD_EVERY = 250
+
 local function recording(name, fn)
 	local recordingId = ChangeHistoryService:TryBeginRecording(name)
 	local ok, result = pcall(fn)
@@ -78,7 +82,7 @@ return function(register)
 	register("massCreate", function(args)
 		return recording("TufanBridge: mass create", function()
 			local paths = {}
-			for _, item in ipairs(args.items or {}) do
+			for i, item in ipairs(args.items or {}) do
 				local parent = Serialize.resolveParent(item.parentPath)
 				if parent and item.className then
 					local inst = Instance.new(item.className)
@@ -91,6 +95,7 @@ return function(register)
 					inst.Parent = parent
 					table.insert(paths, Serialize.uniquePath(inst))
 				end
+				if i % YIELD_EVERY == 0 then task.wait() end
 			end
 			return { paths = paths, created = #paths }
 		end)
@@ -108,10 +113,11 @@ return function(register)
 			end
 			local count = math.max(1, args.count or 1)
 			local paths = {}
-			for _ = 1, count do
+			for i = 1, count do
 				local clone = inst:Clone()
 				clone.Parent = parent
 				table.insert(paths, Serialize.uniquePath(clone))
+				if i % YIELD_EVERY == 0 then task.wait() end
 			end
 			return { paths = paths, created = #paths }
 		end)
@@ -136,6 +142,7 @@ return function(register)
 				end
 				inst.Parent = par
 				created += 1
+				if created % YIELD_EVERY == 0 then task.wait() end
 				if type(spec.children) == "table" then
 					for _, child in ipairs(spec.children) do
 						build(child, inst)
