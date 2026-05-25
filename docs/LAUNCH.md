@@ -21,7 +21,7 @@ That scanner turned out to be one piece of something bigger. **Tufan-Blox-Bridge
 Run it on any place you've imported free models into. It ranks findings high→low.
 
 ### 🤖 Full AI control of Studio (MCP)
-~40 tools your AI can call: read/write scripts, create/edit/clone instances, get/set properties + attributes, CollectionService tags, tree inspection, run Luau, read the output log, project-wide find-and-replace, selection.
+64 tools your AI can call: read/write scripts + **line-level edits**, create/**mass-create**/clone/**duplicate** instances + **create_tree** (whole nested subtree in one call), get/set properties + attributes (+ **mass_edit**), CollectionService tags, tree inspection, run Luau, read the output log, project-wide find-and-replace, **undo/redo**, selection, and **http_get**.
 
 ### 🔄 Two-way file sync + git
 Open a place → its scripts auto-mirror to a local folder. Edit a file → Studio updates; edit in Studio → the file updates. Each place is a git repo with optional **auto-commit / auto-push** toggles. Multi-place + cross-place: copy a module straight from one open place into another.

@@ -13,7 +13,7 @@ competitor is ahead, it says so.
 
 | Tool | What it is | License / price | Status |
 |---|---|---|---|
-| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.2.0) |
+| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.2.4) |
 | **Roblox built-in MCP** | Official server shipping inside Studio + Assistant | First-party, free | Active, recommended by Roblox |
 | `Roblox/studio-rust-mcp-server` | Official standalone reference server | Apache-2.0, free | **Archived Apr 2026** |
 | **WEPPY** (`hope1026`) | AI control + sync, freemium | Free + paid **Pro** | Active |
@@ -24,7 +24,9 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ ~46 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 64 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
+| Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
 | Read-only / safe mode | — | — | — | — | ✅ (Inspector, 31) | — |
 | Script get/set + grep | ✅ | ✅ | partial | ✅ | ✅ | ✅ |
 | Project-wide find/replace | ✅ | — | — | ✅ (Pro bulk) | — | partial |
@@ -100,8 +102,8 @@ favor of the built-in server. Listed for history only; don't start here.
    profile is a cheap, high-value add for cautious users.
 3. **No terrain tools** yet (built-in MCP, WEPPY, and robloxstudio-mcp have them).
 4. **Non-script instance mirroring is WIP** — models/parts don't yet round-trip
-   to disk as files (a Roblox plugin-API limit), and same-named sibling scripts
-   still collapse (UUID-suffixing not done).
+   to disk as files (a Roblox plugin-API limit). _(Same-named sibling scripts no
+   longer collapse — disambiguated with ` (N)` suffixes since v0.1.2.)_
 5. **Screenshot is Windows-only**; macOS capture is unimplemented.
 6. **Fewer clients verified.** WEPPY explicitly lists Antigravity + Codex App +
    Gemini CLI etc.; Tufan documents Claude Code / Cursor primarily.

@@ -33,7 +33,7 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 Two parts that talk over a local HTTP bridge:
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client (Claude Code, Cursor) connects to. Exposes ~46 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client (Claude Code, Cursor) connects to. Exposes 64 tools.
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes the commands.
 
 Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + two-way sync + git + security scanning** in one tool, across one or more open places.
@@ -45,20 +45,22 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 - **Global:** `npm i -g tufan-blox-bridge` (then command `tufan-blox-bridge`).
 - **Plugin manually:** download `TufanBloxBridge.rbxm` from [Releases](https://github.com/drgost1/Tufan-Blox-Bridge/releases) → drop in your Roblox Plugins folder; or build it with `pwsh scripts/build-plugin.ps1 -Install`.
 
-## Tools (~46)
+## Tools (64)
 
-- **Scripts** — get/set source, grep, script tree, project-wide find-and-replace
-- **Instances** — create / delete / clone / move / rename
-- **Properties & attributes** — get/set, mass-set, search-by-value, get/set attribute
+- **Scripts** — get/set source, **line-level edit/insert/delete**, grep, script tree, project-wide find-and-replace
+- **Instances** — create / delete / clone / move / rename, **mass_create**, **mass_duplicate**, **create_tree** (whole nested subtree in one call), **undo / redo**
+- **Properties & attributes** — get/set, mass-set, **mass_edit** (many edits, one undo), search-by-value, get/set attribute
 - **Tags** — get / add / remove / get-tagged (CollectionService)
-- **Tree** — children, descendants, search, services, selection
+- **Tree** — children, descendants, search (matchMode + caseSensitive), services, selection
 - **Luau** — `run_luau` (captures return + prints)
-- **Logs** — output / playtest output
+- **Logs** — output / playtest output (continuous buffer)
 - **Assets** — search, details, insert (flags script-bearing models)
-- **Git** — status / commit / log / diff / restore / branch
-- **Security** — 🛡️ `scan_backdoors` (require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, hidden binary attributes/Values)
+- **Git** (12) — status / commit / log / diff / restore / branch / **show** / **revert** / **recover** (get a deleted file back) / **remote** / **push** / **pull**
+- **Security** — 🛡️ `scan_backdoors` (require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, hidden binary attributes/Values) + `list_studio_plugins`
 - **Multi-place** — `list_places`, `copy_script_across`, `pull_place`
-- *(stubs — no Roblox plugin API: `capture_screenshot`, `start_playtest`, `stop_playtest`)*
+- **Capture** — `capture_screenshot` (server-side OS capture, viewport-cropped)
+- **HTTP** — `http_get` (server-side fetch)
+- *(stubs — no Roblox plugin API yet: `start_playtest`, `stop_playtest`)*
 
 ## How it works
 
