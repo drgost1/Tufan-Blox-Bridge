@@ -61,6 +61,7 @@ function Poll:_ready()
 			placeName = getPlaceName(),
 			placeId = game.PlaceId,
 			gameId = game.GameId,
+			settings = self.ctx.settings and self.ctx.settings:all() or nil, -- gitEnabled/autoCommit/autoPush
 		})
 	end)
 	self:_setConnected(ok)

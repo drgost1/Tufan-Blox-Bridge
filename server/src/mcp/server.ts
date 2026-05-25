@@ -17,7 +17,7 @@ import { registerSecurityTools } from "./tools/security.js";
 import { registerHttpTools } from "./tools/http.js";
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.3.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.4.0" });
 
   // Round-trip health check.
   server.registerTool(

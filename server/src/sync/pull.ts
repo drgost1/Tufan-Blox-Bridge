@@ -6,14 +6,17 @@ import { dispatchTo } from "../bridge/sessions.js";
 import { writeMirrorScript } from "./mirror.js";
 import { unlockProject } from "./lock.js";
 import { snapshotIfDirty } from "../git/git.js";
+import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
 export async function pullPlace(session: Session): Promise<number> {
   if (!session.mirrorRoot) return 0; // unpublished place — no mirror
 
-  // H4 safety: never overwrite uncommitted local edits. Commit whatever is in
-  // the mirror first, so a re-pull is always recoverable (`git log` / restore).
-  await snapshotIfDirty(session.mirrorRoot, "pre-pull snapshot (auto)");
+  // H4 safety (git only): commit whatever's in the mirror before overwriting, so
+  // a re-pull is always recoverable. Skipped when git is off (no repo to snapshot).
+  if (runtimeConfig.gitEnabled) {
+    await snapshotIfDirty(session.mirrorRoot, "pre-pull snapshot (auto)");
+  }
 
   unlockProject(session.mirrorRoot); // must be writable to pull into
   const res: any = await dispatchTo(session.placeId, "pullAll", {}, 60_000);

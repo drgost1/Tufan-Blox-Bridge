@@ -19,6 +19,7 @@ import { pullPlace } from "./sync/pull.js";
 import { lockProject, unlockProject } from "./sync/lock.js";
 import { ensureGitRepo, baselineCommitIfEmpty, ensureMirrorIgnored } from "./git/git.js";
 import { loadRegistry, validatedBase } from "./registry.js";
+import { runtimeConfig } from "./config.js";
 import { log } from "./util/log.js";
 
 async function main() {
@@ -35,12 +36,18 @@ async function main() {
           // experience name from the public API, else fall back to the place name
           const expName = (await resolveExperienceName(session.gameId)) ?? session.placeName;
           session.mirrorRoot = experienceMirrorRoot(expName, session.gameId, session.placeName, session.placeId);
-          ensureMirrorIgnored(validatedBase()); // keep projects/ out of the user's project repo
-          await ensureGitRepo(session.mirrorRoot); // per-place repo
-          await pullPlace(session); // unlocks + dumps the script tree locally
-          await baselineCommitIfEmpty(session.mirrorRoot); // never leave the mirror at 0 commits
+          // Git is opt-in: only touch git when the user has enabled it. Otherwise
+          // the mirror is plain files — no .git, no repo headache.
+          if (runtimeConfig.gitEnabled) {
+            ensureMirrorIgnored(validatedBase()); // keep projects/ out of the user's project repo
+            await ensureGitRepo(session.mirrorRoot); // per-place repo
+          }
+          await pullPlace(session); // unlocks + dumps the script tree locally (no git needed)
+          if (runtimeConfig.gitEnabled) {
+            await baselineCommitIfEmpty(session.mirrorRoot); // never leave the mirror at 0 commits
+          }
           startMirrorWatcher(session); // file -> Studio for the mirror
-          log(`[${session.placeName}] mirror ready: ${session.mirrorRoot}`);
+          log(`[${session.placeName}] mirror ready${runtimeConfig.gitEnabled ? " (git on)" : " (git off)"}: ${session.mirrorRoot}`);
         } catch (e) {
           log(`auto-mirror failed: ${(e as Error).message}`);
         }

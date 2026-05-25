@@ -79,7 +79,7 @@ export function applyStudioChange(
   const w = writeOne(session, studioPath, source, className);
   if (!w) return { written: false };
   log(`[${session.placeName}] studio -> file: ${w.relPath}`);
-  if (runtimeConfig.autoCommit || opts.autoCommitOnStudioEdit) {
+  if (runtimeConfig.gitEnabled && (runtimeConfig.autoCommit || opts.autoCommitOnStudioEdit)) {
     void autoCommit(w.repoRoot, w.relPath, runtimeConfig.autoPush);
   }
   return { written: true, relPath: w.relPath };
@@ -124,7 +124,7 @@ export function applyStudioSync(
     }
   }
 
-  if (repoRoot && changedRel.length > 0 && (runtimeConfig.autoCommit || opts.autoCommitOnStudioEdit)) {
+  if (runtimeConfig.gitEnabled && repoRoot && changedRel.length > 0 && (runtimeConfig.autoCommit || opts.autoCommitOnStudioEdit)) {
     // commit the whole batch as one logical change ("git add ." catches both
     // the writes and the deletions, plus any pruned folders)
     const summary =

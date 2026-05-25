@@ -15,6 +15,7 @@ import { BRIDGE_PORT } from "./protocol.js";
 import { runtimeConfig, setConfig } from "../config.js";
 import * as git from "../git/git.js";
 import { pullPlace } from "../sync/pull.js";
+import { validatedBase } from "../registry.js";
 import { log } from "../util/log.js";
 
 export function startBridge(writerOpts: WriterOptions) {
@@ -22,11 +23,14 @@ export function startBridge(writerOpts: WriterOptions) {
   app.use(express.json({ limit: "25mb" }));
 
   app.post("/ready", (req, res) => {
-    const { sessionId, placeId, gameId, placeName } = req.body ?? {};
+    const { sessionId, placeId, gameId, placeName, settings } = req.body ?? {};
     if (!sessionId || placeId === undefined) {
       res.status(400).json({ ok: false, error: "missing sessionId/placeId" });
       return;
     }
+    // Apply the plugin's persisted settings BEFORE onReady runs the connect flow,
+    // so git setup (repo init / baseline) only happens when gitEnabled is true.
+    if (settings && typeof settings === "object") setConfig(settings);
     const session = onReady({
       sessionId,
       placeId: Number(placeId),
@@ -90,9 +94,25 @@ export function startBridge(writerOpts: WriterOptions) {
 
   // Git toggle switches from the plugin widget.
   app.get("/config", (_req, res) => res.json(runtimeConfig));
-  app.post("/config", (req, res) => {
+  app.post("/config", async (req, res) => {
+    const wasGit = runtimeConfig.gitEnabled;
     setConfig(req.body ?? {});
-    log(`config: autoCommit=${runtimeConfig.autoCommit} autoPush=${runtimeConfig.autoPush}`);
+    log(`config: git=${runtimeConfig.gitEnabled} autoCommit=${runtimeConfig.autoCommit} autoPush=${runtimeConfig.autoPush}`);
+    // Turning Git ON for the first time: initialize the repo on every connected
+    // place mirror right now (so the buttons work without waiting for a reconnect).
+    if (!wasGit && runtimeConfig.gitEnabled) {
+      for (const s of listSessions()) {
+        if (!s.mirrorRoot) continue;
+        try {
+          git.ensureMirrorIgnored(validatedBase());
+          await git.ensureGitRepo(s.mirrorRoot);
+          await git.baselineCommitIfEmpty(s.mirrorRoot);
+          log(`git enabled — initialized repo for ${s.placeName}`);
+        } catch (e) {
+          log(`git init failed for ${s.placeName}: ${(e as Error).message}`);
+        }
+      }
+    }
     res.json(runtimeConfig);
   });
 
@@ -107,8 +127,15 @@ export function startBridge(writerOpts: WriterOptions) {
     const s = sessionFor(sessionId);
     return s?.mirrorRoot ?? null;
   };
+  // Git is opt-in: refuse git actions (with a clear message) when it's off.
+  const gitOff = (res: any): boolean => {
+    if (runtimeConfig.gitEnabled) return false;
+    res.json({ ok: false, error: "Git is off — turn on Git in the widget first (it's opt-in)." });
+    return true;
+  };
 
   app.post("/git/commit", async (req, res) => {
+    if (gitOff(res)) return;
     const root = gitRootFor(req.body?.sessionId);
     if (!root) return res.json({ ok: false, error: "no connected place mirror to commit" });
     try {
@@ -120,17 +147,23 @@ export function startBridge(writerOpts: WriterOptions) {
   });
 
   app.post("/git/push", async (req, res) => {
+    if (gitOff(res)) return;
     const root = gitRootFor(req.body?.sessionId);
     if (!root) return res.json({ ok: false, error: "no connected place mirror" });
     try {
       res.json({ ok: true, message: await git.push(root) });
     } catch (e) {
-      res.json({ ok: false, error: (e as Error).message });
+      const m = (e as Error).message;
+      const friendly = /no.*upstream|no.*remote|'origin'|does not appear to be a git repo/i.test(m)
+        ? "No GitHub remote yet — click Setup GitHub (paste a repo URL) first."
+        : m;
+      res.json({ ok: false, error: friendly });
     }
   });
 
   // Backup now = commit any changes, then push (best-effort push).
   app.post("/git/backup", async (req, res) => {
+    if (gitOff(res)) return;
     const root = gitRootFor(req.body?.sessionId);
     if (!root) return res.json({ ok: false, error: "no connected place mirror" });
     try {
@@ -149,6 +182,7 @@ export function startBridge(writerOpts: WriterOptions) {
 
   // Setup GitHub = add/point 'origin' at a repo URL (upserts).
   app.post("/git/remote", async (req, res) => {
+    if (gitOff(res)) return;
     const root = gitRootFor(req.body?.sessionId);
     if (!root) return res.json({ ok: false, error: "no connected place mirror" });
     const url = req.body?.url as string;
@@ -174,6 +208,7 @@ export function startBridge(writerOpts: WriterOptions) {
 
   // Status line for the widget: branch, dirty count, remote, last commit.
   app.get("/git/info", async (req, res) => {
+    if (!runtimeConfig.gitEnabled) return res.json({ ok: false, error: "git off" });
     const root = gitRootFor(String(req.query.session ?? ""));
     if (!root) return res.json({ ok: false, error: "no connected place mirror" });
     try {
