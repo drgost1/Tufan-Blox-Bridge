@@ -74,6 +74,7 @@ Unlike Rojo (sync) or other MCP plugins (AI control), this does **AI control + t
 ## Config (env)
 
 - `TUFAN_PROJECT` — project root for sync/git (use forward slashes). Defaults to cwd.
+- `TUFAN_READONLY=1` — safe/inspector mode: only read tools are exposed (no writes).
 - `TUFAN_AUTOCOMMIT=1` — auto-commit each Studio→file edit.
 - `TUFAN_AUTOPUSH=1` — also push after commit.
 - `TUFAN_PROJECTS_DIR` — base dir override for auto-registered projects.
