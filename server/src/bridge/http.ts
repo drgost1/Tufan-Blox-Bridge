@@ -14,6 +14,7 @@ import {
   setProxyMode,
 } from "./sessions.js";
 import { BRIDGE_PORT } from "./protocol.js";
+import { pushEvents } from "./feed.js";
 import { runtimeConfig, setConfig } from "../config.js";
 import * as git from "../git/git.js";
 import { pullPlace } from "../sync/pull.js";
@@ -58,6 +59,18 @@ export function startBridge(writerOpts: WriterOptions) {
   app.post("/response", (req, res) => {
     const { sessionId, id, ok, result, error } = req.body ?? {};
     if (id) resolveResponse(sessionId, id, !!ok, result, error);
+    res.json({ ok: true });
+  });
+
+  // Reactive error/warning feed pushed by the plugin (incl. during a playtest).
+  app.post("/studio-event", (req, res) => {
+    const { sessionId, events } = req.body ?? {};
+    let session = sessionId ? getSession(sessionId) : undefined;
+    if (!session) {
+      const all = listSessions();
+      if (all.length === 1) session = all[0];
+    }
+    if (session && Array.isArray(events)) pushEvents(session.placeId, events);
     res.json({ ok: true });
   });
 

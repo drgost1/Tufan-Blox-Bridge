@@ -18,7 +18,11 @@ local function build(ctx)
 	require(script.Selection)(register, ctx)
 	require(script.Tags)(register, ctx)
 	require(script.Security)(register, ctx)
+	require(script.Perf)(register, ctx)
 	require(script.Parent.Sync.Apply)(register, ctx)
+
+	-- batch must come last: it dispatches through the fully-built table.
+	require(script.Batch)(register, ctx, dispatch)
 
 	return dispatch
 end

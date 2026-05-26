@@ -15,6 +15,8 @@ import { registerSelectionTools } from "./tools/selection.js";
 import { registerTagTools } from "./tools/tags.js";
 import { registerSecurityTools } from "./tools/security.js";
 import { registerHttpTools } from "./tools/http.js";
+import { registerBatchTools } from "./tools/batch.js";
+import { registerPerfTools } from "./tools/perf.js";
 import { log } from "../util/log.js";
 
 // Tools that change state. Hidden in read-only mode (TUFAN_READONLY=1) so an AI
@@ -24,7 +26,7 @@ const WRITE_TOOLS = new Set([
   "mass_create", "mass_duplicate", "create_tree", "undo", "redo",
   "set_property", "mass_set_property", "mass_edit", "set_attribute",
   "set_script_source", "edit_script_lines", "insert_script_lines", "delete_script_lines", "find_and_replace_in_scripts",
-  "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset",
+  "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset", "batch",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
   "start_playtest", "stop_playtest", "pause_playtest",
 ]);
@@ -66,6 +68,8 @@ export function createServer(): McpServer {
   registerTagTools(server);
   registerSecurityTools(server);
   registerHttpTools(server);
+  registerBatchTools(server);
+  registerPerfTools(server);
 
   return server;
 }

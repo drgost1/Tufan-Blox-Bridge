@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg } from "../helpers.js";
+import { runStudio, runStudioCached, placeArg } from "../helpers.js";
 
 export function registerTreeTools(server: McpServer) {
   server.registerTool(
@@ -20,8 +20,36 @@ export function registerTreeTools(server: McpServer) {
     "get_descendants",
     { description: "All descendants of path up to maxDepth (default 5).", inputSchema: { path: z.string(), maxDepth: z.number().optional(), place: placeArg } },
     async ({ path, maxDepth, place }) =>
-      runStudio("getDescendants", { path, maxDepth: maxDepth ?? 5 }, (r) =>
+      runStudioCached("getDescendants", { path, maxDepth: maxDepth ?? 5 }, (r) =>
         Array.isArray(r?.descendants) ? r.descendants.map((d: any) => `${"  ".repeat(d.depth)}${d.className}  ${d.path}`).join("\n") : "(none)",
+        place,
+      ),
+  );
+
+  server.registerTool(
+    "get_tree",
+    {
+      description:
+        "Token-lean tree dump: runs of same-class siblings beyond `collapseMin` (default 6) " +
+        "fold into one 'ClassName ×N' line instead of listing every one — so a 4000-part model " +
+        "costs ~1 line, not 4000. Use this over get_descendants on wide/repetitive trees to map " +
+        "far more of the game per context window. Cached + auto-invalidated on writes.",
+      inputSchema: {
+        path: z.string(),
+        maxDepth: z.number().optional().describe("default 4"),
+        collapseMin: z.number().optional().describe("collapse same-class runs longer than this (default 6)"),
+        className: z.string().optional().describe("only show descendants of this class"),
+        place: placeArg,
+      },
+    },
+    async ({ path, maxDepth, collapseMin, className, place }) =>
+      runStudioCached(
+        "getTree",
+        { path, maxDepth: maxDepth ?? 4, collapseMin: collapseMin ?? 6, className: className ?? null },
+        (r) =>
+          Array.isArray(r?.lines) && r.lines.length
+            ? r.lines.map((l: any) => `${"  ".repeat(l.depth)}${l.text}`).join("\n")
+            : "(empty)",
         place,
       ),
   );

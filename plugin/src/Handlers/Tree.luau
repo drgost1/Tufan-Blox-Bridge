@@ -78,4 +78,57 @@ return function(register)
 		end
 		return { services = services }
 	end)
+
+	-- getTree: a token-lean descendant dump. Runs of same-class siblings beyond
+	-- `collapseMin` (default 6) are folded into one "ClassName ×N" line instead of
+	-- listing every one — so a model with 4000 Parts costs ~1 line, not 4000.
+	register("getTree", function(args)
+		local inst, err = Serialize.resolveParent(args.path)
+		if not inst then error(err) end
+		local maxDepth = args.maxDepth or 4
+		local collapseMin = args.collapseMin or 6
+		local classFilter = args.className
+		local out = {}
+		local nodes = 0
+
+		local function walk(parent, depth)
+			if depth > maxDepth then
+				return
+			end
+			-- bucket children by className, preserving first-seen order
+			local order, byClass = {}, {}
+			for _, c in ipairs(parent:GetChildren()) do
+				if not byClass[c.ClassName] then
+					byClass[c.ClassName] = {}
+					table.insert(order, c.ClassName)
+				end
+				table.insert(byClass[c.ClassName], c)
+			end
+			for _, cls in ipairs(order) do
+				if nodes >= 4000 then
+					return
+				end
+				local group = byClass[cls]
+				if #group > collapseMin then
+					-- collapse the whole run; do not recurse (repetitive leaves)
+					table.insert(out, { depth = depth, text = string.format("%s ×%d", cls, #group), collapsed = true })
+					nodes += 1
+				else
+					for _, c in ipairs(group) do
+						if (not classFilter) or c:IsA(classFilter) then
+							table.insert(out, { depth = depth, text = string.format("%s  %s", c.ClassName, c.Name) })
+							nodes += 1
+						end
+						if nodes >= 4000 then
+							return
+						end
+						walk(c, depth + 1)
+					end
+				end
+			end
+		end
+
+		walk(inst, 1)
+		return { lines = out, count = nodes }
+	end)
 end
