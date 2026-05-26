@@ -218,4 +218,35 @@ function Serialize.decodeValue(value: any): any
 	return value
 end
 
+-- Deep-encode a returned value into a JSON-safe structure: tables recurse,
+-- Roblox types go through encodeValue, with depth/size/cycle guards so a returned
+-- `workspace` or a cyclic table can't blow up the response.
+function Serialize.encodeDeep(value: any, maxDepth: number?, maxKeys: number?): any
+	local MAX_DEPTH = maxDepth or 6
+	local MAX_KEYS = maxKeys or 200
+	local function walk(v, depth, seen)
+		if typeof(v) == "table" then
+			if depth >= MAX_DEPTH then return "<table: max depth>" end
+			if seen[v] then return "<cycle>" end
+			seen[v] = true
+			local out, n = {}, 0
+			for k, val in pairs(v) do
+				n += 1
+				if n > MAX_KEYS then
+					out["__truncated"] = true
+					break
+				end
+				out[tostring(k)] = walk(val, depth + 1, seen)
+			end
+			seen[v] = nil
+			return out
+		elseif typeof(v) == "Instance" then
+			return v:GetFullName()
+		else
+			return Serialize.encodeValue(v)
+		end
+	end
+	return walk(value, 0, {})
+end
+
 return Serialize

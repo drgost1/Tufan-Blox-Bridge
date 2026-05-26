@@ -7,22 +7,42 @@ local function build(ctx)
 		dispatch[op] = fn
 	end
 
-	require(script.Scripts)(register, ctx)
-	require(script.Instances)(register, ctx)
-	require(script.Properties)(register, ctx)
-	require(script.Tree)(register, ctx)
-	require(script.Luau)(register, ctx)
-	require(script.Logs)(register, ctx)
-	require(script.Assets)(register, ctx)
-	require(script.System)(register, ctx)
-	require(script.Selection)(register, ctx)
-	require(script.Tags)(register, ctx)
-	require(script.Security)(register, ctx)
-	require(script.Perf)(register, ctx)
-	require(script.Parent.Sync.Apply)(register, ctx)
+	-- Fault-tolerant module load: if one handler module fails to compile/run, warn
+	-- and keep going so the plugin STILL boots + connects with every other tool.
+	-- (A bad module no longer bricks the whole bridge.)
+	local function load(name, mod, ...)
+		-- pcall the require itself so a COMPILE error in the module is caught too
+		-- (require(mod) would otherwise throw before pcall could protect it).
+		local okReq, fn = pcall(require, mod)
+		if not okReq then
+			warn("[TufanBloxBridge] handler '" .. name .. "' failed to compile: " .. tostring(fn))
+			return
+		end
+		local ok, err = pcall(fn, register, ctx, ...)
+		if not ok then
+			warn("[TufanBloxBridge] handler '" .. name .. "' failed to run: " .. tostring(err))
+		end
+	end
+
+	load("Scripts", script.Scripts)
+	load("Instances", script.Instances)
+	load("Properties", script.Properties)
+	load("Tree", script.Tree)
+	load("Luau", script.Luau)
+	load("Logs", script.Logs)
+	load("Assets", script.Assets)
+	load("System", script.System)
+	load("Selection", script.Selection)
+	load("Tags", script.Tags)
+	load("Security", script.Security)
+	load("Perf", script.Perf)
+	load("Describe", script.Describe)
+	load("Snapshot", script.Snapshot)
+	load("Playtest", script.Playtest)
+	load("Apply", script.Parent.Sync.Apply)
 
 	-- batch must come last: it dispatches through the fully-built table.
-	require(script.Batch)(register, ctx, dispatch)
+	load("Batch", script.Batch, dispatch)
 
 	return dispatch
 end

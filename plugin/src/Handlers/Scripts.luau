@@ -148,4 +148,49 @@ return function(register)
 		end
 		return { dryRun = dryRun and true or false, edits = edits, scripts = #edits }
 	end)
+
+	-- patchScript: apply MANY anchored find/replace hunks to ONE script in a
+	-- single call. Each hunk { find, replace, all?, optional? } is a literal
+	-- (non-pattern) match applied in order. The patch is ATOMIC: if a required
+	-- hunk's `find` is missing it errors BEFORE writing anything, so a stale patch
+	-- can't half-apply or silently no-op. Refactor-grade editing without resending
+	-- the whole file.
+	register("patchScript", function(args)
+		local inst, err = Serialize.resolve(args.path)
+		if not inst then error(err) end
+		if not inst:IsA("LuaSourceContainer") then error(args.path .. " is not a script") end
+
+		local hunks = args.hunks or {}
+		local src = inst.Source
+		local applied, results = 0, {}
+		for i, h in ipairs(hunks) do
+			local find = h.find or ""
+			if find == "" or not string.find(src, find, 1, true) then
+				if h.optional then
+					results[i] = { applied = false, reason = "not found (optional)" }
+				else
+					error(string.format("hunk %d find not found (nothing written): %q", i, string.sub(find, 1, 80)))
+				end
+			else
+				local pat = find:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%1")
+				local rep = (h.replace or ""):gsub("%%", "%%%%")
+				local n
+				if h.all then
+					src, n = src:gsub(pat, rep)
+				else
+					src, n = src:gsub(pat, rep, 1)
+				end
+				applied += n
+				results[i] = { applied = true, count = n }
+			end
+		end
+
+		if not args.dryRun then
+			local ok = pcall(function()
+				ScriptEditorService:UpdateSourceAsync(inst, function() return src end)
+			end)
+			if not ok then inst.Source = src end
+		end
+		return { ok = true, hunks = results, replacements = applied, dryRun = args.dryRun and true or false }
+	end)
 end

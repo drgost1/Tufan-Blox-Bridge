@@ -103,4 +103,35 @@ export function registerScriptTools(server: McpServer) {
         return head + ":\n" + edits.map((e: any) => `  ${e.path} (${e.count}×)`).join("\n");
       }, place),
   );
+
+  server.registerTool(
+    "patch_script",
+    {
+      description:
+        "Apply MANY anchored find/replace hunks to ONE script in one call — refactor-grade editing without resending the whole file. Each hunk is a LITERAL match (not a pattern), applied in order. ATOMIC: if a required hunk's `find` isn't present it errors and writes NOTHING (so a stale patch can't half-apply or silently no-op). Mark a hunk optional to skip it when absent. Set dryRun to validate the patch applies cleanly without writing.",
+      inputSchema: {
+        path: z.string(),
+        hunks: z
+          .array(
+            z.object({
+              find: z.string().describe("literal text to find"),
+              replace: z.string().describe("replacement text"),
+              all: z.boolean().optional().describe("replace every occurrence (default: first only)"),
+              optional: z.boolean().optional().describe("skip instead of erroring if `find` is absent"),
+            }),
+          )
+          .describe("ordered hunks"),
+        dryRun: z.boolean().optional().describe("validate only; don't write"),
+        place: placeArg,
+      },
+    },
+    async ({ path, hunks, dryRun, place }) =>
+      runStudio("patchScript", { path, hunks, dryRun: dryRun ?? false }, (r) => {
+        const tag = r?.dryRun ? "[dry run] " : "";
+        const detail = Array.isArray(r?.hunks)
+          ? r.hunks.map((h: any, i: number) => `  [${i}] ${h.applied ? `applied ${h.count}×` : h.reason ?? "skipped"}`).join("\n")
+          : "";
+        return `${tag}patched ${path} — ${r?.replacements ?? 0} replacement(s)\n${detail}`;
+      }, place),
+  );
 }
