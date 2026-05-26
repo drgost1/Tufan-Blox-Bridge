@@ -7,6 +7,25 @@ if not plugin then
 	return
 end
 
+-- Edit-DataModel guard. When you Play/Play-Here (F5), Studio forks a separate
+-- RUNTIME DataModel and spins up a SECOND, throwaway copy of every plugin inside
+-- it — terminated the moment you stop. If that runtime copy also /ready'd and
+-- served commands, its edits would land in the runtime DM and be DISCARDED on
+-- stop (the "works but weak/glitchy during playtest" symptom). We want the
+-- opposite: edits made during a playtest must persist. So the runtime copy stays
+-- passive — ONLY the persistent edit-context plugin serves commands, and every
+-- edit lands in the edit DataModel and survives the playtest (the behavior devs
+-- expect, and what makes "build while playtesting" actually stick).
+--
+-- The edit-context instance keeps running throughout Play, so the MCP stays live
+-- during a playtest; its mutations just show up when the next run reads the edit
+-- DM. (RunService:Run() "Run mode" never forks a DM, so this never gates it.)
+local RunService = game:GetService("RunService")
+if not RunService:IsEdit() then
+	print("[TufanBloxBridge] runtime DataModel copy — staying passive (edit-context instance serves)")
+	return
+end
+
 local HttpService = game:GetService("HttpService")
 
 local buildDispatch = require(script.Handlers)
