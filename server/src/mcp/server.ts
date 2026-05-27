@@ -19,6 +19,7 @@ import { registerBatchTools } from "./tools/batch.js";
 import { registerPerfTools } from "./tools/perf.js";
 import { registerDescribeTools } from "./tools/describe.js";
 import { registerSnapshotTools } from "./tools/snapshots.js";
+import { registerResponsiveTools } from "./tools/responsive.js";
 import { log } from "../util/log.js";
 
 // Tools that change state. Hidden in read-only mode (TUFAN_READONLY=1) so an AI
@@ -29,7 +30,7 @@ const WRITE_TOOLS = new Set([
   "set_property", "mass_edit", "set_attribute",
   "set_script_source", "edit_script_lines", "find_and_replace_in_scripts",
   "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset", "batch",
-  "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input",
+  "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
   "start_playtest", "stop_playtest", "pause_playtest",
 ]);
@@ -43,7 +44,7 @@ const CORE_TOOLS = new Set([
   "get_tree", "describe", "search_objects", "get_properties", "get_script_source", "get_recent_errors",
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
   "set_script_source", "patch_script", "run_luau",
-  "capture_screenshot", "scan_perf", "snapshot", "restore",
+  "capture_screenshot", "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
 ]);
 
 export function createServer(): McpServer {
@@ -94,6 +95,7 @@ export function createServer(): McpServer {
   registerPerfTools(server);
   registerDescribeTools(server);
   registerSnapshotTools(server);
+  registerResponsiveTools(server);
 
   return server;
 }

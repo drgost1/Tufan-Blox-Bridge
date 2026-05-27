@@ -12,7 +12,7 @@ const WRITE_OPS = new Set([
   "setProperty", "massSetProperty", "massEdit", "setAttribute",
   "setScriptSource", "editScriptLines", "insertScriptLines", "deleteScriptLines", "findAndReplace",
   "addTag", "removeTag", "runLuau", "insertAsset", "batch",
-  "patchScript", "snapshot", "restore", "deleteSnapshot",
+  "patchScript", "snapshot", "restore", "deleteSnapshot", "makeResponsive",
 ]);
 
 /** Optional target-place argument shared by every Studio tool. */

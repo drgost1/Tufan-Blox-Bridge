@@ -39,6 +39,7 @@ local function build(ctx)
 	load("Describe", script.Describe)
 	load("Snapshot", script.Snapshot)
 	load("Playtest", script.Playtest)
+	load("Responsive", script.Responsive)
 	load("Apply", script.Parent.Sync.Apply)
 
 	-- batch must come last: it dispatches through the fully-built table.
