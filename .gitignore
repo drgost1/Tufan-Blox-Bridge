@@ -20,3 +20,8 @@ sourcemap.json
 Thumbs.db
 .DS_Store
 *.log
+
+# internal research — never publish
+docs/responsive-ui-research.md
+*-research.md
+_private/

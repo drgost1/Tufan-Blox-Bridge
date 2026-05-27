@@ -1,12 +1,13 @@
 --!nocheck
 -- Tufan's responsive engine. Two handlers:
---   makeResponsive — convert a UI subtree Offset<->Scale (validated formula), with
---     the recipe a paid plugin uses (+ the gaps it misses: CellPadding, real UIScale
---     driver, true fit). Skips runtime-driven (draggable) elements. dryRun previews.
+--   makeResponsive — convert a UI subtree Offset<->Scale across the full set of
+--     resolution-dependent properties (Position, Size, CanvasSize, CellSize,
+--     CellPadding, UIPadding, UICorner), plus a real UIScale driver and a true
+--     fit. Skips runtime-driven (draggable) elements. dryRun previews.
 --   scanResponsive — read-only audit: what will break on another screen, across the
 --     tree AND the scripts, while recognizing intentional draggable/resizable UI.
 --
--- Formula (validated to 4 decimals vs UI Tools v2.6.2):
+-- Formula (validated empirically against Studio's rendered AbsoluteSize):
 --   UDim2 (Position/Size/CanvasSize/CellSize/CellPadding): Scale = Offset / parentAbs[axis]
 --   UIPadding: L/R / parent width, T/B / parent height
 --   UICorner CornerRadius: / min(parent width, height)
