@@ -43,33 +43,8 @@ export function registerInstanceTools(server: McpServer) {
     async ({ path, newName, place }) => runStudio("renameInstance", { path, newName }, (r) => `Renamed to ${r.path}`, place),
   );
 
-  server.registerTool(
-    "mass_create",
-    {
-      description: "Create MANY instances in one call + one undo entry. Far fewer round-trips than N create_instance calls.",
-      inputSchema: {
-        items: z.array(
-          z.object({
-            className: z.string(),
-            parentPath: z.string(),
-            name: z.string().optional(),
-            properties: z.record(z.any()).optional(),
-          }),
-        ),
-        place: placeArg,
-      },
-    },
-    async ({ items, place }) => runStudio("massCreate", { items }, (r) => `Created ${r.created} instance(s)`, place),
-  );
-
-  server.registerTool(
-    "mass_duplicate",
-    {
-      description: "Clone the instance at path `count` times (into its parent, or parentPath). One undo entry.",
-      inputSchema: { path: z.string(), count: z.number().describe("how many copies"), parentPath: z.string().optional(), place: placeArg },
-    },
-    async ({ path, count, parentPath, place }) => runStudio("massDuplicate", { path, count, parentPath }, (r) => `Made ${r.created} copies`, place),
-  );
+  // mass_create / mass_duplicate killed → batch (N× create_instance / clone_instance)
+  // or create_tree for nested specs. All run in one round-trip + one undo entry.
 
   server.registerTool(
     "create_tree",

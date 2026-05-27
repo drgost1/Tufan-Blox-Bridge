@@ -36,15 +36,7 @@ export function registerScriptTools(server: McpServer) {
       ),
   );
 
-  server.registerTool(
-    "get_script_tree",
-    { description: "List every script instance with its class and path.", inputSchema: { place: placeArg } },
-    async ({ place }) =>
-      runStudio("getScriptTree", {}, (r) =>
-        Array.isArray(r?.scripts) ? r.scripts.map((s: any) => `${s.className}  ${s.path}`).join("\n") : "(none)",
-        place,
-      ),
-  );
+  // get_script_tree killed → use search_objects(className="LuaSourceContainer").
 
   server.registerTool(
     "edit_script_lines",
@@ -63,26 +55,9 @@ export function registerScriptTools(server: McpServer) {
       runStudio("editScriptLines", { path, startLine, endLine, newText }, (r) => `Edited ${path} (now ${r.lineCount} lines)`, place),
   );
 
-  server.registerTool(
-    "insert_script_lines",
-    {
-      description: "Insert newText AFTER the given line (afterLine = 0 inserts at the very top). Doesn't touch existing lines.",
-      inputSchema: { path: z.string(), afterLine: z.number().describe("insert after this line (0 = beginning)"), newText: z.string(), place: placeArg },
-    },
-    async ({ path, afterLine, newText, place }) =>
-      // insert before (afterLine+1): empty range [afterLine+1 .. afterLine]
-      runStudio("editScriptLines", { path, startLine: afterLine + 1, endLine: afterLine, newText }, (r) => `Inserted into ${path} (now ${r.lineCount} lines)`, place),
-  );
-
-  server.registerTool(
-    "delete_script_lines",
-    {
-      description: "Delete a range of lines (1-indexed, inclusive) from a script.",
-      inputSchema: { path: z.string(), startLine: z.number(), endLine: z.number(), place: placeArg },
-    },
-    async ({ path, startLine, endLine, place }) =>
-      runStudio("editScriptLines", { path, startLine, endLine, newText: "" }, (r) => `Deleted lines ${startLine}-${endLine} from ${path} (now ${r.lineCount} lines)`, place),
-  );
+  // insert_script_lines / delete_script_lines killed → edit_script_lines does both
+  // (insert = empty range endLine=startLine-1; delete = newText=""). patch_script
+  // is the anchored multi-hunk option that doesn't need line numbers.
 
   server.registerTool(
     "find_and_replace_in_scripts",

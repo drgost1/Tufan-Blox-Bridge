@@ -3,18 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { runStudio, runStudioCached, placeArg } from "../helpers.js";
 
 export function registerTreeTools(server: McpServer) {
-  server.registerTool(
-    "get_children",
-    { description: "Direct children (name + className) of the instance at path.", inputSchema: { path: z.string(), place: placeArg } },
-    async ({ path, place }) =>
-      runStudio("getChildren", { path }, (r) =>
-        // distinguish "exists but empty" from a resolve failure (m9)
-        Array.isArray(r?.children)
-          ? (r.children.length ? r.children.map((c: any) => `${c.className}  ${c.name}`).join("\n") : "(empty — node exists, 0 children)")
-          : "(could not resolve path)",
-        place,
-      ),
-  );
+  // get_children killed → get_tree(maxDepth=1) gives the same child list (+ collapse).
 
   server.registerTool(
     "get_descendants",

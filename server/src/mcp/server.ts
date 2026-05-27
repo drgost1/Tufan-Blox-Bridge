@@ -25,25 +25,44 @@ import { log } from "../util/log.js";
 // can explore a place with zero risk of mutating it — like boshyxd's Inspector.
 const WRITE_TOOLS = new Set([
   "create_instance", "delete_instance", "clone_instance", "move_instance", "rename_instance",
-  "mass_create", "mass_duplicate", "create_tree", "undo", "redo",
-  "set_property", "mass_set_property", "mass_edit", "set_attribute",
-  "set_script_source", "edit_script_lines", "insert_script_lines", "delete_script_lines", "find_and_replace_in_scripts",
+  "create_tree", "undo", "redo",
+  "set_property", "mass_edit", "set_attribute",
+  "set_script_source", "edit_script_lines", "find_and_replace_in_scripts",
   "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset", "batch",
   "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
   "start_playtest", "stop_playtest", "pause_playtest",
 ]);
 
-export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.6.0" });
+// The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~18 so the model
+// isn't choosing among 70 tools every call ("many tools ≠ many hands"). Everything
+// else still works — it's just off the default surface until TUFAN_TOOLSET=full
+// (the default). The everyday hands that cover ~95% of work.
+const CORE_TOOLS = new Set([
+  "ping",
+  "get_tree", "describe", "search_objects", "get_properties", "get_script_source", "get_recent_errors",
+  "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
+  "set_script_source", "patch_script", "run_luau",
+  "capture_screenshot", "scan_perf", "snapshot", "restore",
+]);
 
-  // Read-only / safe mode: skip registering every write tool, so the AI only
-  // sees inspection tools. Launch with TUFAN_READONLY=1.
-  if (process.env.TUFAN_READONLY === "1") {
+export function createServer(): McpServer {
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.7.0" });
+
+  // Tiering: wrap registerTool once to drop tools that the active mode hides.
+  //   TUFAN_READONLY=1     → hide every write tool (inspection only)
+  //   TUFAN_TOOLSET=core   → expose ONLY the lean core (~18 hands)
+  const readOnly = process.env.TUFAN_READONLY === "1";
+  const coreOnly = process.env.TUFAN_TOOLSET === "core";
+  if (readOnly || coreOnly) {
     const orig = server.registerTool.bind(server);
-    (server as any).registerTool = (name: string, ...rest: unknown[]) =>
-      WRITE_TOOLS.has(name) ? undefined : (orig as any)(name, ...rest);
-    log(`READ-ONLY mode — ${WRITE_TOOLS.size} write tools hidden; inspection only`);
+    (server as any).registerTool = (name: string, ...rest: unknown[]) => {
+      if (readOnly && WRITE_TOOLS.has(name)) return undefined;
+      if (coreOnly && !CORE_TOOLS.has(name)) return undefined;
+      return (orig as any)(name, ...rest);
+    };
+    if (readOnly) log(`READ-ONLY mode — ${WRITE_TOOLS.size} write tools hidden; inspection only`);
+    if (coreOnly) log(`CORE toolset — only ${CORE_TOOLS.size} core tools exposed (set TUFAN_TOOLSET=full for all)`);
   }
 
   // Round-trip health check.

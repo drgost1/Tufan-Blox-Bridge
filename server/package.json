@@ -1,13 +1,16 @@
 {
   "name": "tufan-blox-bridge",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "MCP server for Roblox Studio AI-driven development — scripts, instances, properties, Luau execution, two-way file sync, and git history.",
   "type": "module",
   "bin": {
     "tufan-blox-bridge": "dist/index.js"
   },
   "main": "dist/index.js",
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -17,7 +20,15 @@
     "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["roblox", "mcp", "studio", "ai", "luau", "model-context-protocol", "tufan"],
+  "keywords": [
+    "roblox",
+    "mcp",
+    "studio",
+    "ai",
+    "luau",
+    "model-context-protocol",
+    "tufan"
+  ],
   "author": "Tufan Studio",
   "license": "MIT",
   "homepage": "https://github.com/drgost1/Tufan-Blox-Bridge",

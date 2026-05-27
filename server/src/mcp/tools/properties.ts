@@ -21,15 +21,8 @@ export function registerPropertyTools(server: McpServer) {
     async ({ path, name, value, place }) => runStudio("setProperty", { path, name, value }, () => `Set ${path}.${name}`, place),
   );
 
-  server.registerTool(
-    "mass_set_property",
-    {
-      description: "Set the same property/value on every instance in paths[].",
-      inputSchema: { paths: z.array(z.string()), name: z.string(), value: z.any(), place: placeArg },
-    },
-    async ({ paths, name, value, place }) =>
-      runStudio("massSetProperty", { paths, name, value }, (r) => `Set ${name} on ${r.count} instance(s)`, place),
-  );
+  // mass_set_property killed → mass_edit is a strict superset (repeat the path in
+  // the edits list with the same name/value).
 
   server.registerTool(
     "mass_edit",

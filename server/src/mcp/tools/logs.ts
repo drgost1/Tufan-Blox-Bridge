@@ -48,13 +48,6 @@ export function registerLogTools(server: McpServer) {
       ),
   );
 
-  server.registerTool(
-    "get_playtest_output",
-    { description: "Output from the current/most-recent playtest session.", inputSchema: { maxEntries: z.number().optional(), place: placeArg } },
-    async ({ maxEntries, place }) =>
-      runStudio("getPlaytestOutput", { maxEntries: maxEntries ?? 100 }, (r) =>
-        Array.isArray(r?.lines) && r.lines.length ? r.lines.join("\n") : "(no playtest output)",
-        place,
-      ),
-  );
+  // get_playtest_output killed → get_output_log reads the same ring buffer (it
+  // already includes streamed playtest output). get_recent_errors is the live feed.
 }
