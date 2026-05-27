@@ -182,29 +182,71 @@ cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit); fit()
 		local root, err = Serialize.resolve(args.path)
 		if not root then error(err) end
 
-		-- which element names do scripts position/size at runtime? (drag/resize) — so we
-		-- DON'T flag those as "missing scale"; instead we note them as intentional.
-		local driverHints = {}
+		-- ---- scope the code scan: the scanned ScreenGui's OWN scripts + StarterPlayerScripts,
+		--      never PluginDebugService or unrelated ReplicatedStorage modules (kills the noise
+		--      that flagged BeachTheme / UIVFX / the plugin itself).
+		local pluginDebug = game:FindFirstChild("PluginDebugService")
+		local screenGui = root:FindFirstAncestorWhichIsA("LayerCollector") or root
+		local scoped, seen = {}, {}
+		local function addScripts(container)
+			if not container then return end
+			for _, d in ipairs(container:GetDescendants()) do
+				if d:IsA("LuaSourceContainer") and not seen[d]
+					and not (pluginDebug and d:IsDescendantOf(pluginDebug)) then
+					seen[d] = true
+					scoped[#scoped + 1] = d
+				end
+			end
+		end
+		addScripts(screenGui)
+		local sp = game:GetService("StarterPlayer")
+		addScripts(sp and sp:FindFirstChild("StarterPlayerScripts"))
+
+		local function splitLines(s)
+			local t = {}
+			for ln in (s .. "\n"):gmatch("(.-)\n") do t[#t + 1] = ln end
+			return t
+		end
+
+		-- driven[Name]=true → an element a drag/resize script moves at runtime. We infer the
+		-- element NAME from the dragged variable (e.g. `local phoneRoot = ...WaitForChild("PhoneRoot")`
+		-- + `phoneRoot.Position = ...`), so the tree pass won't false-flag it as "missing scale".
+		local driven = {}
 		local codeIssues = {}
-		for _, d in ipairs(game:GetDescendants()) do
-			if d:IsA("LuaSourceContainer") then
-				local ok, src = pcall(function() return d.Source end)
-				if ok and src then
-					local dragging = src:find("InputChanged") or src:find("Dragging") or src:find("UserInputService")
-					if dragging and (src:find("%.Position%s*=") or src:find("%.Size%s*=")) then
-						local clamps = src:find("ViewportSize") or src:find("math.clamp") or src:find("AbsoluteSize")
-						codeIssues[#codeIssues + 1] = {
-							script = Serialize.uniquePath(d),
-							kind = "runtime drag/resize",
-							clampsToViewport = clamps ~= nil,
-						}
-					end
-					-- runtime pixel positioning (offset assigned to Position/Size at runtime)
-					if src:find("UDim2%.fromOffset") or src:find("UDim2%.new%(%s*0%s*,") then
-						if src:find("%.Position%s*=") or src:find("%.Size%s*=") then
-							codeIssues[#codeIssues + 1] = { script = Serialize.uniquePath(d), kind = "runtime pixel positioning (UDim2.fromOffset)" }
+		for _, scr in ipairs(scoped) do
+			local ok, src = pcall(function() return scr.Source end)
+			if ok and src then
+				local lines = splitLines(src)
+				local hasInput = src:find("InputChanged") or src:find("Dragging")
+				if hasInput and (src:find("%.Position%s*=") or src:find("%.Size%s*=")) then
+					-- function-local clamp check: for each drag-context Position/Size assignment,
+					-- look ±12 lines for a viewport clamp. A clamp elsewhere in the file (a far-off
+					-- fitToViewport) no longer counts — that was the phone false-positive.
+					local unclamped = false
+					for i, line in ipairs(lines) do
+						local v = line:match("([%w_]+)%.Position%s*=") or line:match("([%w_]+)%.Size%s*=")
+						if v then
+							local inDrag = false
+							for k = math.max(1, i - 30), i do
+								if lines[k]:find("InputChanged") then inDrag = true; break end
+							end
+							if inDrag then
+								-- resolve the dragged variable -> element Name (mark runtime-driven)
+								local name = src:match("local%s+" .. v .. "%s*=[^\n]-[\"']([%w_]+)[\"']")
+								if name then driven[name] = true end
+								local clamped = false
+								for k = math.max(1, i - 12), math.min(#lines, i + 12) do
+									local l = lines[k]
+									if l:find("clamp") or l:find("ViewportSize") or l:find("HudRegistry") then clamped = true; break end
+								end
+								if not clamped then unclamped = true end
+							end
 						end
 					end
+					codeIssues[#codeIssues + 1] = { script = Serialize.uniquePath(scr), kind = "runtime drag/resize", clampsToViewport = not unclamped }
+				end
+				if (src:find("UDim2%.fromOffset") or src:find("UDim2%.new%(%s*0%s*,")) and (src:find("%.Position%s*=") or src:find("%.Size%s*=")) then
+					codeIssues[#codeIssues + 1] = { script = Serialize.uniquePath(scr), kind = "runtime pixel positioning (UDim2.fromOffset)" }
 				end
 			end
 		end
@@ -218,7 +260,8 @@ cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit); fit()
 
 		for _, g in ipairs(nodes) do
 			if g:IsA("GuiObject") then
-				local runtime = CollectionService:HasTag(g, "Draggable") or CollectionService:HasTag(g, "Resizable")
+				-- runtime-driven = tagged OR inferred from a drag/resize script (driven[Name])
+				local runtime = CollectionService:HasTag(g, "Draggable") or CollectionService:HasTag(g, "Resizable") or driven[g.Name] == true
 				if runtime then
 					counts.draggable += 1
 				else
