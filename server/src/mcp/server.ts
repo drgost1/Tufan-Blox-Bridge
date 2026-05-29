@@ -33,6 +33,10 @@ const WRITE_TOOLS = new Set([
   "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
   "start_playtest", "stop_playtest", "pause_playtest",
+  // cross-place / runtime / mirror writers — also mutate state, so gate them too:
+  // copy_script_across upserts a script into a destination place, playtest_probe
+  // runs arbitrary Luau in a live sim, pull_place overwrites the on-disk mirror.
+  "copy_script_across", "playtest_probe", "pull_place",
 ]);
 
 // The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~18 so the model
@@ -48,7 +52,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.7.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.7.1" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)

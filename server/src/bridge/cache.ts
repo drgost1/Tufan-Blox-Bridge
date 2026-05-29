@@ -10,6 +10,11 @@ interface Entry {
 
 const byPlace = new Map<number, Map<string, Entry>>();
 
+// Hard cap per place so a long read-only inspection run (many distinct-arg reads,
+// no intervening write to clear the place) can't grow the map unbounded. Evicts
+// the oldest entry on overflow.
+const MAX_ENTRIES_PER_PLACE = 256;
+
 export function cacheGet(placeId: number, key: string, ttlMs: number): string | undefined {
   const m = byPlace.get(placeId);
   const e = m?.get(key);
@@ -26,6 +31,18 @@ export function cacheSet(placeId: number, key: string, value: string) {
   if (!m) {
     m = new Map();
     byPlace.set(placeId, m);
+  }
+  // Evict the oldest entry if at capacity (and we're inserting a new key).
+  if (m.size >= MAX_ENTRIES_PER_PLACE && !m.has(key)) {
+    let oldestKey: string | undefined;
+    let oldestTs = Infinity;
+    for (const [k, e] of m) {
+      if (e.ts < oldestTs) {
+        oldestTs = e.ts;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey !== undefined) m.delete(oldestKey);
   }
   m.set(key, { value, ts: Date.now() });
 }

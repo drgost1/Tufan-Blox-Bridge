@@ -87,7 +87,11 @@ export function setProxyMode(ownerUrl: string | null) {
       }
     };
     void refresh();
-    proxyPoll = setInterval(refresh, 2000);
+    // Poll fast enough that a place freshly connected to the owner becomes visible
+    // to this proxy within a fraction of a second (else resolveTargetPlace would
+    // spuriously report "not connected" for up to a full interval). 750ms keeps
+    // that window small without hammering the owner.
+    proxyPoll = setInterval(refresh, 750);
   } else {
     proxyPlaces = [];
   }

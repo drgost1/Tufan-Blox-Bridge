@@ -14,11 +14,18 @@ export async function pullPlace(session: Session): Promise<number> {
 
   // H4 safety (git only): commit whatever's in the mirror before overwriting, so
   // a re-pull is always recoverable. Skipped when git is off (no repo to snapshot).
+  // If the protective commit fails (e.g. git identity unset on a fresh machine),
+  // REFUSE to overwrite — better a blocked pull than silently lost uncommitted work.
   if (runtimeConfig.gitEnabled) {
-    await snapshotIfDirty(session.mirrorRoot, "pre-pull snapshot (auto)");
+    try {
+      await snapshotIfDirty(session.mirrorRoot, "pre-pull snapshot (auto)");
+    } catch (e) {
+      log(`[${session.placeName}] ⚠ pre-pull snapshot failed — refusing to overwrite uncommitted mirror. Fix git (e.g. set user.email) or disable git. ${(e as Error).message}`);
+      throw e; // abort BEFORE unlock/write — do not touch the mirror
+    }
   }
 
-  unlockProject(session.mirrorRoot); // must be writable to pull into
+  await unlockProject(session.mirrorRoot); // must be writable to pull into
   const res: any = await dispatchTo(session.placeId, "pullAll", {}, 60_000);
   const scripts: any[] = res?.scripts ?? [];
 
@@ -44,7 +51,12 @@ export async function pullPlace(session: Session): Promise<number> {
   // M7: self-verify. The plugin reports how many scripts it found; a gap means a
   // partial/failed pull — surface it instead of trusting the mirror blindly.
   const reported = scripts.length;
-  if (written !== reported) {
+  if (reported === 0) {
+    // Pull is additive-only (it never deletes), so a 0-script result leaves the
+    // existing mirror untouched — but a real place has scripts, so 0 almost
+    // always means a transient Studio glitch. Flag it rather than log "0/0" ok.
+    log(`[${session.placeName}] ⚠ pull returned 0 scripts — existing mirror left untouched (transient Studio glitch?)`);
+  } else if (written !== reported) {
     log(`[${session.placeName}] ⚠ pull mismatch: Studio reported ${reported} scripts, wrote ${written}${failed ? ` (${failed} failed)` : ""}`);
   } else {
     log(`[${session.placeName}] pulled ${written}/${reported} scripts -> ${session.mirrorRoot}`);

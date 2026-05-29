@@ -60,19 +60,26 @@ return function(register)
 
 	register("massSetProperty", function(args)
 		local count = 0
+		local errors = {}
 		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass set " .. args.name)
 		for i, path in ipairs(args.paths) do
-			local inst = Serialize.resolve(path)
+			local inst, rerr = Serialize.resolve(path)
 			if inst then
-				local ok = pcall(function() inst[args.name] = Serialize.decodeValue(args.value) end)
-				if ok then count += 1 end
+				local ok, perr = pcall(function() inst[args.name] = Serialize.decodeValue(args.value) end)
+				if ok then
+					count += 1
+				else
+					table.insert(errors, { index = i, path = path, name = args.name, reason = tostring(perr) })
+				end
+			else
+				table.insert(errors, { index = i, path = path, name = args.name, reason = rerr or "unresolved path" })
 			end
 			if i % YIELD_EVERY == 0 then task.wait() end
 		end
 		if recordingId then
 			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
 		end
-		return { count = count }
+		return { count = count, failed = #errors, errors = errors }
 	end)
 
 	register("searchByProperty", function(args)
@@ -95,22 +102,28 @@ return function(register)
 	-- calls (Roblox HttpService is ~500 req/min — bulk edits hit that fast).
 	register("massEdit", function(args)
 		local edits = args.edits or {}
-		local applied, failed = 0, 0
+		local applied = 0
+		local errors = {}
 		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass edit (" .. #edits .. ")")
 		for i, e in ipairs(edits) do
-			local inst = e.path and Serialize.resolve(e.path)
+			local inst, rerr
+			if e.path then inst, rerr = Serialize.resolve(e.path) end
 			if inst then
-				local ok = pcall(function() inst[e.name] = Serialize.decodeValue(e.value) end)
-				if ok then applied += 1 else failed += 1 end
+				local ok, perr = pcall(function() inst[e.name] = Serialize.decodeValue(e.value) end)
+				if ok then
+					applied += 1
+				else
+					table.insert(errors, { index = i, path = e.path, name = e.name, reason = tostring(perr) })
+				end
 			else
-				failed += 1
+				table.insert(errors, { index = i, path = e.path, name = e.name, reason = rerr or "unresolved path" })
 			end
 			if i % YIELD_EVERY == 0 then task.wait() end
 		end
 		if recordingId then
 			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
 		end
-		return { applied = applied, failed = failed }
+		return { applied = applied, failed = #errors, errors = errors }
 	end)
 
 	register("getAttributes", function(args)

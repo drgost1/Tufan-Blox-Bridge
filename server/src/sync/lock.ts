@@ -3,17 +3,22 @@
 // when the plugin reconnects. On Windows, fs.chmod toggles the read-only
 // attribute (write bit). Copying always works; this just blocks edit/delete.
 
-import { readdirSync, statSync, chmodSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { log } from "../util/log.js";
 
 const RO = 0o444;
 const RW = 0o644;
 
-function walk(dir: string, mode: number) {
+// Async + yields between entries (the await points hand control back to the event
+// loop) so locking/unlocking a large mirror never blocks the HTTP poll bridge on
+// the single Node thread. Runs only on disconnect/reconnect, so this is belt-and-
+// suspenders, but it keeps even a big tree from causing a poll hiccup.
+async function walk(dir: string, mode: number): Promise<void> {
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = await readdir(dir, { withFileTypes: true });
   } catch {
     return;
   }
@@ -21,9 +26,9 @@ function walk(dir: string, mode: number) {
     const p = join(dir, e.name);
     try {
       if (e.isDirectory()) {
-        walk(p, mode);
+        await walk(p, mode);
       } else {
-        chmodSync(p, mode);
+        await chmod(p, mode);
       }
     } catch {
       // best-effort per file
@@ -31,14 +36,14 @@ function walk(dir: string, mode: number) {
   }
 }
 
-export function lockProject(projectRoot: string) {
+export async function lockProject(projectRoot: string): Promise<void> {
   if (!existsSync(projectRoot)) return;
-  walk(projectRoot, RO);
+  await walk(projectRoot, RO);
   log(`locked (read-only): ${projectRoot}`);
 }
 
-export function unlockProject(projectRoot: string) {
+export async function unlockProject(projectRoot: string): Promise<void> {
   if (!existsSync(projectRoot)) return;
-  walk(projectRoot, RW);
+  await walk(projectRoot, RW);
   log(`unlocked (writable): ${projectRoot}`);
 }

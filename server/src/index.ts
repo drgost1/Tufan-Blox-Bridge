@@ -16,7 +16,7 @@ import { setOnSessionConnect, startHeartbeat, experienceMirrorRoot } from "./bri
 import { startWatcherForSession, startMirrorWatcher, stopMirrorWatcher } from "./sync/watcher.js";
 import { resolveExperienceName } from "./sync/experience.js";
 import { pullPlace } from "./sync/pull.js";
-import { lockProject, unlockProject } from "./sync/lock.js";
+import { lockProject } from "./sync/lock.js";
 import { ensureGitRepo, baselineCommitIfEmpty, ensureMirrorIgnored } from "./git/git.js";
 import { loadRegistry, validatedBase } from "./registry.js";
 import { runtimeConfig } from "./config.js";
@@ -60,13 +60,17 @@ async function main() {
     onDisconnect: (s) => {
       if (s.mirrorRoot) {
         stopMirrorWatcher(s.sessionId);
-        lockProject(s.mirrorRoot);
+        void lockProject(s.mirrorRoot); // async chmod walk — fire and forget
       }
     },
     onReconnect: (s) => {
       if (s.mirrorRoot) {
-        unlockProject(s.mirrorRoot);
-        void pullPlace(s).then(() => startMirrorWatcher(s)).catch(() => {});
+        // pullPlace unlocks the mirror itself; if its pre-pull snapshot refuses
+        // (git misconfigured), it throws and the mirror stays locked — which is
+        // the safe outcome (don't sync over uncommitted work). Log, don't swallow.
+        void pullPlace(s)
+          .then(() => startMirrorWatcher(s))
+          .catch((e) => log(`[${s.placeName}] reconnect pull skipped: ${(e as Error).message}`));
       }
     },
   });

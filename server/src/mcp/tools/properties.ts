@@ -35,7 +35,21 @@ export function registerPropertyTools(server: McpServer) {
       },
     },
     async ({ edits, place }) =>
-      runStudio("massEdit", { edits }, (r) => `Applied ${r.applied} edit(s)${r.failed ? `, ${r.failed} failed` : ""}`, place),
+      runStudio("massEdit", { edits }, (r) => {
+        let out = `Applied ${r.applied} edit(s)${r.failed ? `, ${r.failed} failed` : ""}`;
+        // Surface WHY edits failed (path unresolved / bad property) so a partial
+        // failure is debuggable instead of just a count.
+        if (Array.isArray(r?.errors) && r.errors.length) {
+          out +=
+            "\nFailures:\n" +
+            r.errors
+              .slice(0, 20)
+              .map((e: any) => `  [${e.index}] ${e.path ?? "?"}${e.name ? "." + e.name : ""} — ${e.reason}`)
+              .join("\n");
+          if (r.errors.length > 20) out += `\n  …and ${r.errors.length - 20} more`;
+        }
+        return out;
+      }, place),
   );
 
   server.registerTool(

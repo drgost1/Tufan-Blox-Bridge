@@ -22,9 +22,23 @@ return function(register)
 
 		local logs = {}
 		local conn = LogService.MessageOut:Connect(function(m) table.insert(logs, m) end)
-		local ok, res = pcall(fn)
+		-- Watchdog (see runLuau): probe code may yield forever; run it on a child
+		-- coroutine raced against a deadline so a stuck probe returns a clear error
+		-- instead of leaking a thread until the server's 90s command timeout.
+		local budget = tonumber(args.timeoutBudget) or 30
+		local done, ok, res = false, nil, nil
+		local co = coroutine.create(function()
+			ok, res = pcall(fn)
+			done = true
+		end)
+		coroutine.resume(co)
+		local deadline = os.clock() + budget
+		while not done and os.clock() < deadline do
+			task.wait()
+		end
 		task.wait()
 		conn:Disconnect()
+		if not done then error(string.format("probe exceeded %ds budget — unbounded WaitForChild/:Wait/loop? Pass timeoutBudget to extend.", budget)) end
 		if not ok then error("runtime error: " .. tostring(res)) end
 
 		local result

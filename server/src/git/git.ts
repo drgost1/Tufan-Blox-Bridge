@@ -65,18 +65,24 @@ export async function log(root: string, count = 20): Promise<string> {
  * pre-pull safety net so a re-pull can NEVER overwrite uncommitted local work
  * (the data-loss bug: untracked mirror files were silently lost on re-pull).
  * Returns true if it created a commit, false if the tree was already clean.
+ *
+ * THROWS if the protective commit fails while the tree was dirty (e.g. git
+ * identity unset, an index .lock, repo corruption). The caller MUST treat a
+ * throw as "uncommitted work is NOT protected" and refuse to overwrite — a
+ * silent `false` here was the live residual of the H4 data-loss incident.
  */
 export async function snapshotIfDirty(root: string, message: string): Promise<boolean> {
+  const g = gitFor(root);
+  const s = await g.status(); // a clean read throws → propagates (can't confirm safety)
+  if (s.files.length === 0) return false; // clean — nothing to protect
   try {
-    const g = gitFor(root);
-    const s = await g.status();
-    if (s.files.length === 0) return false; // clean — nothing to protect
     await g.add(".");
     await g.commit(message);
     logMsg(`snapshot (${s.files.length} change(s)) in ${root}: ${message}`);
     return true;
-  } catch {
-    return false; // best-effort — never block a pull
+  } catch (e) {
+    logMsg(`snapshot FAILED in ${root} — uncommitted work NOT protected: ${(e as Error).message}`);
+    throw e; // let the caller decide; do NOT report success on a failed protective commit
   }
 }
 

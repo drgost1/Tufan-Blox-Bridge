@@ -59,7 +59,19 @@ export function registerBatchTools(server: McpServer) {
       },
     },
     async ({ ops, stopOnError, place }) => {
-      const mapped = ops.map((o) => ({ op: OP_MAP[o.op] ?? o.op, args: o.args ?? {} }));
+      const mapped = ops.map((o) => {
+        // Parity with create_tree: some MCP clients serialize a per-op args object
+        // as a JSON STRING. Parse it back so the plugin gets a real table.
+        let a: unknown = o.args ?? {};
+        if (typeof a === "string") {
+          try {
+            a = JSON.parse(a);
+          } catch {
+            /* not JSON — pass through; the plugin op reports the bad arg */
+          }
+        }
+        return { op: OP_MAP[o.op] ?? o.op, args: a };
+      });
       return runStudio(
         "batch",
         { ops: mapped, stopOnError: stopOnError ?? false },

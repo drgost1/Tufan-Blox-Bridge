@@ -1,6 +1,18 @@
 --!nocheck
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
+local HttpService = game:GetService("HttpService")
+
+-- Some MCP clients serialize a nested `properties` object as a JSON string.
+-- Accept either a real table or a JSON-string-of-a-table (parity with create_tree).
+local function asPropsTable(v)
+	if type(v) == "table" then return v end
+	if type(v) == "string" then
+		local ok, decoded = pcall(function() return HttpService:JSONDecode(v) end)
+		if ok and type(decoded) == "table" then return decoded end
+	end
+	return nil
+end
 
 -- Yield every N built/cloned instances so a big batch doesn't starve the single
 -- main thread (and with it the poll loop → false "unresponsive"/disconnect).
@@ -23,8 +35,9 @@ return function(register)
 			if not parent then error(err) end
 			local inst = Instance.new(args.className)
 			if args.name then inst.Name = args.name end
-			if type(args.properties) == "table" then
-				for k, v in pairs(args.properties) do
+			local props = asPropsTable(args.properties)
+			if props then
+				for k, v in pairs(props) do
 					pcall(function() inst[k] = Serialize.decodeValue(v) end)
 				end
 			end
@@ -79,25 +92,41 @@ return function(register)
 	end)
 
 	-- Create many instances in ONE undo entry. items = {{className, parentPath, name, properties}}
+	-- A bad item (missing/invalid className, unresolved parent, bad property) is
+	-- recorded in `errors` and skipped rather than silently dropped or aborting the
+	-- whole batch — so an AI-driven build can see exactly what didn't land.
 	register("massCreate", function(args)
 		return recording("TufanBridge: mass create", function()
 			local paths = {}
+			local errors = {}
 			for i, item in ipairs(args.items or {}) do
-				local parent = Serialize.resolveParent(item.parentPath)
-				if parent and item.className then
-					local inst = Instance.new(item.className)
-					if item.name then inst.Name = item.name end
-					if type(item.properties) == "table" then
-						for k, v in pairs(item.properties) do
-							pcall(function() inst[k] = Serialize.decodeValue(v) end)
+				local parent, perr = Serialize.resolveParent(item.parentPath)
+				if not parent then
+					table.insert(errors, { index = i, parentPath = item.parentPath, reason = perr or "parent not found" })
+				elseif not item.className then
+					table.insert(errors, { index = i, reason = "missing className" })
+				else
+					local okNew, inst = pcall(Instance.new, item.className)
+					if not okNew or not inst then
+						table.insert(errors, { index = i, reason = "invalid className '" .. tostring(item.className) .. "'" })
+					else
+						if item.name then inst.Name = item.name end
+						local props = asPropsTable(item.properties)
+						if props then
+							for k, v in pairs(props) do
+								local pok, pe = pcall(function() inst[k] = Serialize.decodeValue(v) end)
+								if not pok then
+									table.insert(errors, { index = i, prop = k, reason = tostring(pe) })
+								end
+							end
 						end
+						inst.Parent = parent
+						table.insert(paths, Serialize.uniquePath(inst))
 					end
-					inst.Parent = parent
-					table.insert(paths, Serialize.uniquePath(inst))
 				end
 				if i % YIELD_EVERY == 0 then task.wait() end
 			end
-			return { paths = paths, created = #paths }
+			return { paths = paths, created = #paths, failed = #errors, errors = errors }
 		end)
 	end)
 
@@ -135,8 +164,9 @@ return function(register)
 				if type(spec) ~= "table" or not spec.className then return nil end
 				local inst = Instance.new(spec.className)
 				if spec.name then inst.Name = spec.name end
-				if type(spec.properties) == "table" then
-					for k, v in pairs(spec.properties) do
+				local props = asPropsTable(spec.properties)
+				if props then
+					for k, v in pairs(props) do
 						pcall(function() inst[k] = Serialize.decodeValue(v) end)
 					end
 				end
