@@ -10,10 +10,15 @@ export const runtimeConfig = {
   gitEnabled: process.env.TUFAN_GIT === "1",
   autoCommit: process.env.TUFAN_AUTOCOMMIT === "1",
   autoPush: process.env.TUFAN_AUTOPUSH === "1",
+  // Inspection-only mode. Pure-write tools are hidden at registration (server.ts);
+  // mixed read/write tools (script_source, tag) stay visible but guard their write
+  // path via requireWritable() (helpers.ts), so reads still work in inspector mode.
+  readOnly: process.env.TUFAN_READONLY === "1",
 };
 
 export function setConfig(patch: Partial<typeof runtimeConfig>) {
   if (typeof patch.gitEnabled === "boolean") runtimeConfig.gitEnabled = patch.gitEnabled;
   if (typeof patch.autoCommit === "boolean") runtimeConfig.autoCommit = patch.autoCommit;
   if (typeof patch.autoPush === "boolean") runtimeConfig.autoPush = patch.autoPush;
+  if (typeof patch.readOnly === "boolean") runtimeConfig.readOnly = patch.readOnly;
 }

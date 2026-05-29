@@ -1,24 +1,31 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg } from "../helpers.js";
+import { runStudio, placeArg, requireWritable, text, errorText } from "../helpers.js";
+import { createHash } from "node:crypto";
+import { dispatchTo, resolveTargetPlace } from "../../bridge/sessions.js";
 
 export function registerScriptTools(server: McpServer) {
   server.registerTool(
-    "get_script_source",
+    "script_source",
     {
-      description: "Read the Source of a Script/LocalScript/ModuleScript by full path, e.g. 'ServerScriptService.MusicService'.",
-      inputSchema: { path: z.string().describe("Full dotted instance path"), place: placeArg },
+      description:
+        "Read OR write a script's Source. Omit `source` to READ the Source of a " +
+        "Script/LocalScript/ModuleScript by full path (e.g. 'ServerScriptService.MusicService'); " +
+        "pass `source` to OVERWRITE the whole Source. (Replaces get_script_source + set_script_source.)",
+      inputSchema: {
+        path: z.string().describe("Full dotted instance path"),
+        source: z.string().optional().describe("omit to read; provide to overwrite the whole Source"),
+        place: placeArg,
+      },
     },
-    async ({ path, place }) => runStudio("getScriptSource", { path }, (r) => r.source ?? "(empty)", place),
-  );
-
-  server.registerTool(
-    "set_script_source",
-    {
-      description: "Overwrite the Source of an existing script at the given path.",
-      inputSchema: { path: z.string(), source: z.string(), place: placeArg },
+    async ({ path, source, place }) => {
+      if (source === undefined) {
+        return runStudio("getScriptSource", { path }, (r) => r.source ?? "(empty)", place);
+      }
+      const blocked = requireWritable();
+      if (blocked) return blocked;
+      return runStudio("setScriptSource", { path, source }, () => `Updated ${path}`, place);
     },
-    async ({ path, source, place }) => runStudio("setScriptSource", { path, source }, () => `Updated ${path}`, place),
   );
 
   server.registerTool(
@@ -108,5 +115,50 @@ export function registerScriptTools(server: McpServer) {
           : "";
         return `${tag}patched ${path} — ${r?.replacements ?? 0} replacement(s)\n${detail}`;
       }, place),
+  );
+
+  server.registerTool(
+    "find_duplicates",
+    {
+      description:
+        "Find scripts with IDENTICAL Source — copy-pasted code ripe for extracting into a shared " +
+        "ModuleScript. Hashes every script's Source and reports each cluster of 2+ exact matches, " +
+        "biggest first. Read-only.",
+      inputSchema: {
+        minLines: z.number().optional().describe("ignore scripts shorter than this many lines (default 3) — skips trivial stubs"),
+        place: placeArg,
+      },
+    },
+    async ({ minLines, place }) => {
+      const target = resolveTargetPlace(place);
+      if (target.error) return errorText(target.error);
+      try {
+        const res: any = await dispatchTo(target.placeId!, "pullAll", {});
+        const scripts: any[] = res?.scripts ?? [];
+        const floor = minLines ?? 3;
+        const byHash = new Map<string, { paths: string[]; lines: number }>();
+        for (const s of scripts) {
+          const src = String(s.source ?? "");
+          if (src.trim() === "") continue;
+          const lines = src.split("\n").length;
+          if (lines < floor) continue;
+          const h = createHash("sha1").update(src).digest("hex");
+          const e = byHash.get(h) ?? { paths: [], lines };
+          e.paths.push(s.studioPath);
+          byHash.set(h, e);
+        }
+        const clusters = [...byHash.values()]
+          .filter((e) => e.paths.length > 1)
+          .sort((a, b) => b.paths.length - a.paths.length);
+        if (!clusters.length) return text(`No duplicate scripts found (scanned ${scripts.length}, ≥${floor} lines).`);
+        const redundant = clusters.reduce((n, c) => n + (c.paths.length - 1), 0);
+        const body = clusters
+          .map((c) => `× ${c.paths.length} identical (${c.lines} lines):\n` + c.paths.map((p) => `    ${p}`).join("\n"))
+          .join("\n");
+        return text(`${clusters.length} duplicate cluster(s), ${redundant} redundant copy(ies) — candidates for a shared module:\n${body}`);
+      } catch (e) {
+        return errorText(`find_duplicates failed: ${(e as Error).message}`);
+      }
+    },
   );
 }

@@ -92,4 +92,51 @@ return function(register)
 			busyLoops = busyLoops,
 		}
 	end)
+
+	-- projectHealth: one-look census of the whole place. One traversal total (sum
+	-- over each top-level service's descendants), which also yields the per-service
+	-- breakdown. The server formats it into a dashboard.
+	register("projectHealth", function()
+		local CollectionService = game:GetService("CollectionService")
+		local c = { instances = 0, scripts = 0, scriptBytes = 0, parts = 0, meshparts = 0, unions = 0, particles = 0, lights = 0 }
+		local byService = {}
+		for _, svc in ipairs(game:GetChildren()) do
+			local ok, kids = pcall(function() return svc:GetDescendants() end)
+			if ok then
+				if #kids > 0 then byService[svc.Name] = #kids end
+				for _, d in ipairs(kids) do
+					c.instances += 1
+					if d:IsA("LuaSourceContainer") then
+						c.scripts += 1
+						local sok, src = pcall(function() return d.Source end)
+						if sok and type(src) == "string" then c.scriptBytes += #src end
+					elseif d:IsA("MeshPart") then
+						c.parts += 1
+						c.meshparts += 1
+					elseif d:IsA("UnionOperation") then
+						c.parts += 1
+						c.unions += 1
+					elseif d:IsA("BasePart") then
+						c.parts += 1
+					elseif d:IsA("ParticleEmitter") then
+						c.particles += 1
+					elseif d:IsA("Light") then
+						c.lights += 1
+					end
+				end
+			end
+		end
+		local tags = {}
+		pcall(function() tags = CollectionService:GetAllTags() end)
+		local streaming = false
+		pcall(function() streaming = Workspace.StreamingEnabled end)
+		return {
+			counts = c,
+			byService = byService,
+			tagCount = #tags,
+			streamingEnabled = streaming,
+			placeName = game.Name,
+			placeId = game.PlaceId,
+		}
+	end)
 end

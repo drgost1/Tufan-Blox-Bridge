@@ -3,13 +3,14 @@
 import { z } from "zod";
 import { dispatchTo, resolveTargetPlace } from "../bridge/sessions.js";
 import { cacheGet, cacheSet, bumpPlace } from "../bridge/cache.js";
+import { runtimeConfig } from "../config.js";
 
 // Internal ops that mutate the place. After any of these runs, the place's read
 // cache is cleared so the next get_descendants / get_tree reflects the change.
 const WRITE_OPS = new Set([
   "createInstance", "deleteInstance", "cloneInstance", "moveInstance", "renameInstance",
   "massCreate", "massDuplicate", "createTree", "undo", "redo",
-  "setProperty", "massSetProperty", "massEdit", "setAttribute",
+  "setProperty", "massSetProperty", "massEdit", "setAttribute", "massSetAttribute",
   "setScriptSource", "editScriptLines", "insertScriptLines", "deleteScriptLines", "findAndReplace",
   "addTag", "removeTag", "runLuau", "insertAsset", "batch",
   "patchScript", "snapshot", "restore", "deleteSnapshot", "makeResponsive",
@@ -33,6 +34,17 @@ export function text(s: string): ToolText {
 
 export function errorText(s: string): ToolText {
   return { content: [{ type: "text", text: s }], isError: true };
+}
+
+/**
+ * Guard the write path of a mixed read/write tool (script_source, tag). Returns an
+ * error ToolText to return early when read-only mode is on, else null to proceed.
+ * Pure-write tools don't need this — they're hidden at registration in read-only.
+ */
+export function requireWritable(): ToolText | null {
+  return runtimeConfig.readOnly
+    ? errorText("read-only mode (TUFAN_READONLY=1) — writes are disabled in inspector mode")
+    : null;
 }
 
 /**

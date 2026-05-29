@@ -79,4 +79,31 @@ export function registerPropertyTools(server: McpServer) {
     },
     async ({ path, name, value, place }) => runStudio("setAttribute", { path, name, value }, () => `Set attribute ${name}`, place),
   );
+
+  server.registerTool(
+    "mass_set_attribute",
+    {
+      description:
+        "Set MANY attributes across instances in ONE call + one undo entry: edits = [{path, name, value}, ...]. " +
+        "The attribute counterpart of mass_edit. Value may be a primitive or a typed wrapper like {Vector3:[x,y,z]}.",
+      inputSchema: {
+        edits: z.array(z.object({ path: z.string(), name: z.string(), value: z.any() })),
+        place: placeArg,
+      },
+    },
+    async ({ edits, place }) =>
+      runStudio("massSetAttribute", { edits }, (r) => {
+        let out = `Set ${r.applied} attribute(s)${r.failed ? `, ${r.failed} failed` : ""}`;
+        if (Array.isArray(r?.errors) && r.errors.length) {
+          out +=
+            "\nFailures:\n" +
+            r.errors
+              .slice(0, 20)
+              .map((e: any) => `  [${e.index}] ${e.path ?? "?"}${e.name ? "." + e.name : ""} — ${e.reason}`)
+              .join("\n");
+          if (r.errors.length > 20) out += `\n  …and ${r.errors.length - 20} more`;
+        }
+        return out;
+      }, place),
+  );
 }

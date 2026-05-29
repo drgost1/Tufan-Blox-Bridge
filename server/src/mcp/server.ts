@@ -20,6 +20,8 @@ import { registerPerfTools } from "./tools/perf.js";
 import { registerDescribeTools } from "./tools/describe.js";
 import { registerSnapshotTools } from "./tools/snapshots.js";
 import { registerResponsiveTools } from "./tools/responsive.js";
+import { registerHealthTools } from "./tools/health.js";
+import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
 // Tools that change state. Hidden in read-only mode (TUFAN_READONLY=1) so an AI
@@ -27,16 +29,19 @@ import { log } from "../util/log.js";
 const WRITE_TOOLS = new Set([
   "create_instance", "delete_instance", "clone_instance", "move_instance", "rename_instance",
   "create_tree", "undo", "redo",
-  "set_property", "mass_edit", "set_attribute",
-  "set_script_source", "edit_script_lines", "find_and_replace_in_scripts",
-  "add_tag", "remove_tag", "set_selection", "run_luau", "insert_asset", "batch",
+  "set_property", "mass_edit", "set_attribute", "mass_set_attribute",
+  "edit_script_lines", "find_and_replace_in_scripts",
+  "set_selection", "run_luau", "insert_asset", "batch",
   "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
-  "start_playtest", "stop_playtest", "pause_playtest",
+  "playtest",
   // cross-place / runtime / mirror writers — also mutate state, so gate them too:
   // copy_script_across upserts a script into a destination place, playtest_probe
   // runs arbitrary Luau in a live sim, pull_place overwrites the on-disk mirror.
   "copy_script_across", "playtest_probe", "pull_place",
+  // NOTE: script_source + tag are mixed read/write — NOT hidden here; their write
+  // path is guarded at call time via requireWritable() so reads stay available in
+  // inspector mode.
 ]);
 
 // The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~18 so the model
@@ -45,19 +50,19 @@ const WRITE_TOOLS = new Set([
 // (the default). The everyday hands that cover ~95% of work.
 const CORE_TOOLS = new Set([
   "ping",
-  "get_tree", "describe", "search_objects", "get_properties", "get_script_source", "get_recent_errors",
+  "get_tree", "describe", "search_objects", "get_properties", "script_source", "get_recent_errors",
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
-  "set_script_source", "patch_script", "run_luau",
+  "patch_script", "run_luau", "project_health",
   "capture_screenshot", "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.7.1" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.8.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
   //   TUFAN_TOOLSET=core   → expose ONLY the lean core (~18 hands)
-  const readOnly = process.env.TUFAN_READONLY === "1";
+  const readOnly = runtimeConfig.readOnly;
   const coreOnly = process.env.TUFAN_TOOLSET === "core";
   if (readOnly || coreOnly) {
     const orig = server.registerTool.bind(server);
@@ -100,6 +105,7 @@ export function createServer(): McpServer {
   registerDescribeTools(server);
   registerSnapshotTools(server);
   registerResponsiveTools(server);
+  registerHealthTools(server);
 
   return server;
 }

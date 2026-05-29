@@ -4,25 +4,24 @@ import { runStudio, placeArg } from "../helpers.js";
 
 export function registerPlaytestTools(server: McpServer) {
   server.registerTool(
-    "start_playtest",
+    "playtest",
     {
       description:
-        "Start a Studio RUN-mode simulation (RunService:Run) — runs server scripts + physics in the SAME session, so run_luau and get_playtest_output keep working DURING the run (the automated build→test→inspect→fix loop). No player character is spawned: full Play Solo (F5) has no plugin API and must be started manually. Stop with stop_playtest.",
-      inputSchema: { place: placeArg },
+        "Control a Studio RUN-mode simulation (RunService). action='start' runs server scripts + " +
+        "physics in the SAME session, so run_luau / playtest_probe / get_playtest_output keep working " +
+        "DURING the run (the build→test→inspect→fix loop) — no player character (full Play Solo/F5 has " +
+        "no plugin API, start that manually). 'stop' ends it; 'pause' suspends physics + scripts. " +
+        "(Replaces start_playtest + stop_playtest + pause_playtest.) Check state with is_running.",
+      inputSchema: {
+        action: z.enum(["start", "stop", "pause"]),
+        place: placeArg,
+      },
     },
-    async ({ place }) => runStudio("startPlaytest", {}, (r) => r?.note ?? "Run mode started", place),
-  );
-
-  server.registerTool(
-    "stop_playtest",
-    { description: "Stop the running simulation (RunService:Stop).", inputSchema: { place: placeArg } },
-    async ({ place }) => runStudio("stopPlaytest", {}, (r) => r?.note ?? "stopped", place),
-  );
-
-  server.registerTool(
-    "pause_playtest",
-    { description: "Pause the running simulation — physics + scripts suspended (RunService:Pause).", inputSchema: { place: placeArg } },
-    async ({ place }) => runStudio("pausePlaytest", {}, (r) => r?.note ?? "paused", place),
+    async ({ action, place }) => {
+      const op = action === "start" ? "startPlaytest" : action === "stop" ? "stopPlaytest" : "pausePlaytest";
+      const fallback = action === "start" ? "Run mode started" : action === "stop" ? "stopped" : "paused";
+      return runStudio(op, {}, (r) => r?.note ?? fallback, place);
+    },
   );
 
   server.registerTool(

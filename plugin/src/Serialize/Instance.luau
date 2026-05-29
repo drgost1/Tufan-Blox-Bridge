@@ -172,6 +172,26 @@ function Serialize.encodeValue(value: any): any
 		return { BrickColor = value.Name }
 	elseif t == "Instance" then
 		return { Instance = value:GetFullName() }
+	elseif t == "NumberRange" then
+		return { NumberRange = { value.Min, value.Max } }
+	elseif t == "Rect" then
+		return { Rect = { value.Min.X, value.Min.Y, value.Max.X, value.Max.Y } }
+	elseif t == "NumberSequence" then
+		local kps = {}
+		for _, kp in ipairs(value.Keypoints) do
+			table.insert(kps, { kp.Time, kp.Value, kp.Envelope })
+		end
+		return { NumberSequence = kps }
+	elseif t == "ColorSequence" then
+		local kps = {}
+		for _, kp in ipairs(value.Keypoints) do
+			table.insert(kps, { kp.Time, { kp.Value.R, kp.Value.G, kp.Value.B } })
+		end
+		return { ColorSequence = kps }
+	elseif t == "Font" then
+		return { Font = { value.Family, value.Weight.Name, value.Style.Name } }
+	elseif t == "PhysicalProperties" then
+		return { PhysicalProperties = { value.Density, value.Friction, value.Elasticity, value.FrictionWeight, value.ElasticityWeight } }
 	else
 		return tostring(value)
 	end
@@ -214,6 +234,37 @@ function Serialize.decodeValue(value: any): any
 		return nil
 	elseif value.BrickColor then
 		return BrickColor.new(value.BrickColor)
+	elseif value.NumberRange then
+		local v = value.NumberRange
+		return NumberRange.new(v[1], v[2])
+	elseif value.Rect then
+		local v = value.Rect
+		return Rect.new(v[1], v[2], v[3], v[4])
+	elseif value.NumberSequence then
+		local v = value.NumberSequence
+		if type(v) == "number" then
+			return NumberSequence.new(v) -- flat sequence shorthand
+		end
+		local kps = {}
+		for _, kp in ipairs(v) do
+			table.insert(kps, NumberSequenceKeypoint.new(kp[1], kp[2], kp[3] or 0))
+		end
+		return NumberSequence.new(kps)
+	elseif value.ColorSequence then
+		local kps = {}
+		for _, kp in ipairs(value.ColorSequence) do
+			local c = kp[2]
+			table.insert(kps, ColorSequenceKeypoint.new(kp[1], Color3.new(c[1], c[2], c[3])))
+		end
+		return ColorSequence.new(kps)
+	elseif value.Font then
+		local v = value.Font
+		local weight = (v[2] and Enum.FontWeight[v[2]]) or Enum.FontWeight.Regular
+		local style = (v[3] and Enum.FontStyle[v[3]]) or Enum.FontStyle.Normal
+		return Font.new(v[1], weight, style)
+	elseif value.PhysicalProperties then
+		local v = value.PhysicalProperties
+		return PhysicalProperties.new(v[1], v[2], v[3], v[4] or 1, v[5] or 1)
 	end
 	return value
 end

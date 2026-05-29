@@ -24,9 +24,12 @@ return function(register)
 	end)
 
 	register("getTagged", function(args)
+		local className = args.className
 		local paths = {}
 		for _, inst in ipairs(CollectionService:GetTagged(args.tag)) do
-			table.insert(paths, Serialize.uniquePath(inst))
+			if not className or inst:IsA(className) then
+				table.insert(paths, Serialize.uniquePath(inst))
+			end
 		end
 		return { paths = paths }
 	end)

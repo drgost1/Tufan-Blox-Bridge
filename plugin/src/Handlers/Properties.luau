@@ -150,6 +150,34 @@ return function(register)
 		return { ok = true }
 	end)
 
+	-- Batch attribute edits in ONE round-trip + ONE undo: edits = {{path, name, value}}.
+	-- Mirror of massEdit but for attributes; returns a per-item errors list.
+	register("massSetAttribute", function(args)
+		local edits = args.edits or {}
+		local applied = 0
+		local errors = {}
+		local recordingId = ChangeHistoryService:TryBeginRecording("TufanBridge: mass set attribute (" .. #edits .. ")")
+		for i, e in ipairs(edits) do
+			local inst, rerr
+			if e.path then inst, rerr = Serialize.resolve(e.path) end
+			if inst then
+				local ok, perr = pcall(function() inst:SetAttribute(e.name, Serialize.decodeValue(e.value)) end)
+				if ok then
+					applied += 1
+				else
+					table.insert(errors, { index = i, path = e.path, name = e.name, reason = tostring(perr) })
+				end
+			else
+				table.insert(errors, { index = i, path = e.path, name = e.name, reason = rerr or "unresolved path" })
+			end
+			if i % YIELD_EVERY == 0 then task.wait() end
+		end
+		if recordingId then
+			ChangeHistoryService:FinishRecording(recordingId, Enum.FinishRecordingOperation.Commit)
+		end
+		return { applied = applied, failed = #errors, errors = errors }
+	end)
+
 	register("searchMaterials", function(args)
 		local MaterialService = game:GetService("MaterialService")
 		local filter = args.name and string.lower(args.name) or nil

@@ -18,6 +18,7 @@ const OP_MAP: Record<string, string> = {
   mass_set_property: "massSetProperty",
   mass_edit: "massEdit",
   set_attribute: "setAttribute",
+  mass_set_attribute: "massSetAttribute",
   add_tag: "addTag",
   remove_tag: "removeTag",
   set_script_source: "setScriptSource",
