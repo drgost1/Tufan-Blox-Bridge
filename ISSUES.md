@@ -5,9 +5,20 @@ live place (Chomolokko Beach & Bars), with evidence, impact, and concrete fixes.
 
 **Status:** ✅ Fixed · 🛠️ Partially fixed · ⛔ Open · ℹ️ Not our bug
 
-> Most items were fixed in **v0.2.0**. After upgrading, restart the MCP client
+> Current version: **v0.8.0**. After upgrading, restart the MCP client
 > (npx pulls latest) **and** reload the `.rbxm` in Studio. Server + plugin must
 > match.
+
+## ✅ What landed in v0.6.1 → v0.8.0
+- **Serialization round-trip (v0.8.0 keystone)** — NumberSequence, ColorSequence, NumberRange, Rect, Font, PhysicalProperties now round-trip through `get_properties`/`set_property`/`mass_edit`/`describe`; particle curves, UI gradients, and springs are finally editable (they silently broke before).
+- **Surgical tool merges (v0.8.0, breaking renames)** — `script_source` (read+write), `tag` (get/add/remove), `playtest` (start/stop/pause).
+- **New tools** — `describe`, `batch`, `patch_script`, `snapshot`/`restore`/`list_snapshots`/`delete_snapshot`, `get_recent_errors`, `scan_perf`, `playtest_probe`, `playtest_input` (v0.6.1); `make_responsive`, `scan_responsive` (v0.7.0); `project_health`, `find_duplicates`, `mass_set_attribute` (v0.8.0).
+- **Tool surface trimmed 79 → 71 (v0.7.0)** — 8 redundant tools killed, each with an exact survivor (`get_children`→`get_tree`, `get_script_tree`→`search_objects`, `mass_set_property`→`mass_edit`, `mass_create`/`mass_duplicate`→`batch`/`create_tree`, `insert_script_lines`/`delete_script_lines`→`edit_script_lines`, `get_playtest_output`→`get_output_log`). New `TUFAN_TOOLSET=core` tiering exposes a lean everyday core (~20 tools at v0.7.0, ~22 at v0.8.0).
+- **Read-only mode hardened (v0.7.1/v0.8.0)** — `copy_script_across`/`playtest_probe`/`pull_place` no longer leak as callable; mixed tools (`script_source`, `tag`) stay visible but write-guarded, so inspector mode can still read.
+- **Pre-pull data-loss residual closed (v0.7.1)** — a failed protective snapshot now *aborts* the pull instead of silently overwriting the dirty mirror.
+- **Watchdog (v0.7.1)** — `run_luau`/`playtest_probe` return a clear error on infinite-yield payloads (default 30s, `timeoutBudget` overridable).
+- **Mass ops report per-item failures (v0.7.1)** — partial failures are no longer hidden.
+- **Playtest-persist fix (v0.6.1)** — only the edit-context plugin instance serves; edits made during a playtest land in the edit DataModel and survive the run.
 
 ## ✅ What landed in v0.2.0
 - **H1 capture_screenshot** — works now (server-side OS capture → MCP image; verified producing real PNGs).
@@ -32,12 +43,14 @@ The AI can finally see its own work. _Future: macOS support, region/element crop
 ### H2 · Runtime introspection &nbsp; 🛠️ Partially fixed
 **Output reliability — fixed:** the plugin now keeps a continuous `LogService`
 ring buffer from boot (survives `ClearOutput`, captures streamed playtest output),
-so `get_playtest_output` returns instantly and complete instead of risking a 30 s
-stall. `run_luau`'s edit-mode scope is now documented honestly.
-**Still open:** `run_luau` can't execute in a running playtest's server/client
-DataModel. Real fix = inject companion runtime agents (a `Script`/`LocalScript`
-that open their own bridge channel during play) + a `context` arg. Needs runtime
-testing — deferred.
+so `get_output_log` returns instantly and complete instead of risking a 30 s
+stall. **Run-mode introspection — fixed (v0.6.1):** `playtest_probe` runs
+structured Luau inside a running Run-mode sim, and `playtest_input` drives the
+character — the build→test→inspect loop closes for Run mode.
+**Still open:** no tool can execute in a full Play Solo (F5) session's
+server/client DataModel. Real fix = inject companion runtime agents (a
+`Script`/`LocalScript` that open their own bridge channel during play) + a
+`context` arg. Needs runtime testing — deferred.
 
 ### H3 · `insert_asset` free models &nbsp; 🛠️ Partially fixed
 A 403 now returns an **actionable message** ("you don't own this asset — take it
@@ -81,9 +94,10 @@ further. Three-part fix:
   (`DEFAULT_TIMEOUT_MS`), still per-call overridable. Legit heavy ops finish instead
   of erroring at 30s.
 - **Plugin — yielding mass loops** (`Handlers/Properties.luau`, `Handlers/Instances.luau`):
-  `massSetProperty` / `massEdit` / `massCreate` / `massDuplicate` / `createTree` now
-  `task.wait()` every 250 items, so the poll loop breathes mid-batch and the session
-  stays live.
+  the internal mass handlers (`massSetProperty` / `massEdit` / `massCreate` /
+  `massDuplicate` / `createTree` — surfaced today via the `mass_edit`, `batch`, and
+  `create_tree` tools) now `task.wait()` every 250 items, so the poll loop breathes
+  mid-batch and the session stays live.
 
   _Caller discipline still matters for `run_luau`_: arbitrary user code can't be
   auto-chunked — batch big edits (≤1,000) with a `task.wait()`/`RunService.Heartbeat:Wait()`
@@ -114,6 +128,8 @@ Added `matchMode` (`substring` default, `exact`, `wholeWord`, `regex`/Lua-patter
 
 ### m9 · `get_children` empty vs error &nbsp; ✅ Fixed (v0.2.0)
 Now returns `(empty — node exists, 0 children)` vs `(could not resolve path)`.
+_(`get_children` itself was merged into `get_tree`/`get_descendants` in v0.7.0;
+the empty-vs-error distinction lives on in the tree tools.)_
 
 ### m10 · Nested-git footgun &nbsp; ✅ Fixed (v0.1.1)
 `ensureMirrorIgnored()` auto-adds `projects/` to the parent repo's `.gitignore`.
@@ -132,4 +148,4 @@ Returns `(no commits yet)` instead of the raw git error.
 
 ---
 
-_Source: real usage during the Chomolokko Beach & Bars build, 2026-05. Update as items land._
+_Source: real usage during the Chomolokko Beach & Bars build, 2026-05 → 2026-06. Update as items land._

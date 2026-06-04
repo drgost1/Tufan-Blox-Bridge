@@ -13,7 +13,7 @@ competitor is ahead, it says so.
 
 | Tool | What it is | License / price | Status |
 |---|---|---|---|
-| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.2.4) |
+| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.8.0) |
 | **Roblox built-in MCP** | Official server shipping inside Studio + Assistant | First-party, free | Active, recommended by Roblox |
 | `Roblox/studio-rust-mcp-server` | Official standalone reference server | Apache-2.0, free | **Archived Apr 2026** |
 | **WEPPY** (`hope1026`) | AI control + sync, freemium | Free + paid **Pro** | Active |
@@ -24,10 +24,10 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ 64 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 71 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
 | Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
 | Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
-| Read-only / safe mode | — | — | — | — | ✅ (Inspector, 31) | — |
+| Read-only / safe mode | ✅ (`TUFAN_READONLY=1`) | — | — | — | ✅ (Inspector, 31) | — |
 | Script get/set + grep | ✅ | ✅ | partial | ✅ | ✅ | ✅ |
 | Project-wide find/replace | ✅ | — | — | ✅ (Pro bulk) | — | partial |
 | Run Luau (edit mode) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -66,9 +66,9 @@ subscription, Tufan is currently the only option.
 
 ### boshyxd/robloxstudio-mcp — best safety story, no workflow layer
 43 tools, plus a genuinely nice **Inspector Edition**: 31 read-only tools, no
-writes at all — great for letting an AI explore a place with zero risk. That
-read-only edition is something Tufan lacks and arguably should copy. But there's
-no sync, no git, and no backdoor scanner.
+writes at all — great for letting an AI explore a place with zero risk. Tufan
+now ships the same profile via `TUFAN_READONLY=1` (write tools hidden, mixed
+tools write-guarded). But boshyxd has no sync, no git, and no backdoor scanner.
 
 ### drgost1/robloxstudio-mcp — Tufan's own predecessor
 Same author. 51 granular tools, all-local HTTP polling, MIT. It's pure AI
@@ -98,14 +98,12 @@ favor of the built-in server. Listed for history only; don't start here.
 1. **The built-in Roblox MCP** will out-reach any plugin on raw engine access and
    needs zero install. Tufan should position as the *workflow/disk/git/security*
    layer on top, not as a replacement.
-2. **No read-only/safe mode** like boshyxd's Inspector Edition. A no-writes
-   profile is a cheap, high-value add for cautious users.
-3. **No terrain tools** yet (built-in MCP, WEPPY, and robloxstudio-mcp have them).
-4. **Non-script instance mirroring is WIP** — models/parts don't yet round-trip
+2. **No terrain tools** yet (built-in MCP, WEPPY, and robloxstudio-mcp have them).
+3. **Non-script instance mirroring is WIP** — models/parts don't yet round-trip
    to disk as files (a Roblox plugin-API limit). _(Same-named sibling scripts no
    longer collapse — disambiguated with ` (N)` suffixes since v0.1.2.)_
-5. **Screenshot is Windows-only**; macOS capture is unimplemented.
-6. **Fewer clients verified.** WEPPY explicitly lists Antigravity + Codex App +
+4. **Screenshot is Windows-only**; macOS capture is unimplemented.
+5. **Fewer clients verified.** WEPPY explicitly lists Antigravity + Codex App +
    Gemini CLI etc.; Tufan documents Claude Code / Cursor primarily.
 
 ## Recommendation by use case

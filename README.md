@@ -1,6 +1,6 @@
 # Tufan-Blox-Bridge
 
-**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 67 tools, two-way file sync, opt-in per-place git, a backdoor scanner, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
+**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 71 tools, two-way file sync, opt-in per-place git, a backdoor scanner, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
 
 > Unlike Rojo (file sync only) or other MCP plugins (AI control only), Tufan-Blox-Bridge does **AI control + two-way sync + git + security + safe-mode** in a single tool — across one or more open places at once.
 
@@ -42,36 +42,44 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 67 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 71 tools.
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes commands and mirrors your scripts.
 
 The AI calls a tool → the server queues a command → the plugin's long-poll picks it up → executes in Studio → returns the result. The server also handles file sync and git on your machine.
 
 ## Features
 
-- 🛠 **Full Studio control** — 67 tools: scripts (incl. line-level edits), instances (incl. bulk + whole-tree creation), properties/attributes, tags, tree inspection, Luau execution, output logs.
+- 🛠 **Full Studio control** — 71 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
 - 🔄 **Two-way file sync** — open a place and its script tree mirrors to disk; edit a file → Studio updates, edit in Studio → the file updates.
 - 🌿 **Opt-in per-place git** — off by default (no `.git`, no headache). Turn it on in the widget and each place becomes its own repo with Commit / Push / Backup / Setup-GitHub buttons + auto-commit/push toggles. Your choice persists across restarts.
 - 🛡 **Backdoor scanner** — `scan_backdoors` finds require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, and hidden binary payloads; `list_studio_plugins` surfaces the remote-code-plugin vector.
+- ⏪ **Snapshots** — `snapshot` checkpoints any subtree before risky changes; `restore` brings it back exactly. A real undo that survives across the AI boundary.
+- ⚡ **Batch ops** — `batch` runs dozens of mixed operations in one round-trip and one undo entry; 40 creates = 1 call, not 40.
+- 📱 **Responsive UI engine** — `make_responsive` converts a UI subtree Offset→Scale with a validated formula (skips draggables, `dryRun` previews); `scan_responsive` audits tree **and** scripts for resolution breakage and sub-44px tap targets.
+- 🩺 **One-look audits** — `project_health` (full place census in one traversal), `scan_perf` (ranked frame-killer fix list), `find_duplicates` (copy-pasted script clusters).
 - 👥 **Concurrent multi-session** — run several Claude/Cursor sessions on the same Studio at once; one owns the plugin, the rest proxy through it, all commands serialized → no collisions.
-- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` exposes inspection tools only (no writes) for letting an AI explore with zero risk.
+- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides all 36 write tools; mixed tools (`script_source`, `tag`) stay readable with writes blocked. Zero-risk AI exploration.
+- 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the ~22 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
 - 👁 **Screenshots** — `capture_screenshot` returns a PNG of the Studio viewport so the AI can *see* its work. `get_asset_thumbnail` shows any catalog asset.
-- ▶️ **Playtest control** — `start/stop/pause_playtest` drive Run mode (server scripts + physics); `run_luau` + `get_playtest_output` keep working *during* the run for a build→test→inspect loop.
+- ▶️ **Playtest control** — `playtest` (start / stop / pause) drives Run mode (server scripts + physics); `playtest_probe` runs structured Luau *inside* the running sim, `playtest_input` drives the character, and `run_luau` + `get_output_log` keep working *during* the run — a closed build→test→inspect loop.
 - 🗺 **Multi-place** — `list_places`, `pull_place`, and `copy_script_across` to move a module straight from one open place into another.
 
-## Tools (67)
+## Tools (71)
 
 | Group | Tools |
 |---|---|
-| **Scripts** | `get_script_source` · `grep_scripts` · `get_script_tree` · `set_script_source` · `edit_script_lines` · `insert_script_lines` · `delete_script_lines` · `find_and_replace_in_scripts` |
-| **Instances** | `create_instance` · `delete_instance` · `clone_instance` · `move_instance` · `rename_instance` · `mass_create` · `mass_duplicate` · `create_tree` · `undo` · `redo` |
-| **Properties** | `get_properties` · `set_property` · `mass_set_property` · `mass_edit` · `search_by_property` · `get_attributes` · `set_attribute` |
-| **Tree** | `get_children` · `get_descendants` · `search_objects` · `get_services` |
-| **Tags** | `get_tags` · `get_tagged` · `add_tag` · `remove_tag` |
+| **Scripts** | `script_source` · `grep_scripts` · `edit_script_lines` · `patch_script` · `find_and_replace_in_scripts` · `find_duplicates` |
+| **Instances** | `create_instance` · `delete_instance` · `clone_instance` · `move_instance` · `rename_instance` · `create_tree` · `undo` · `redo` |
+| **Properties** | `get_properties` · `set_property` · `mass_edit` · `search_by_property` · `get_attributes` · `set_attribute` · `mass_set_attribute` |
+| **Inspection** | `get_tree` · `get_descendants` · `search_objects` · `get_services` · `describe` |
+| **Tags** | `tag` · `get_tagged` |
 | **Selection** | `get_selection` · `set_selection` |
-| **Luau** | `run_luau` |
-| **Logs** | `get_output_log` · `get_playtest_output` |
-| **Playtest** | `start_playtest` · `stop_playtest` · `pause_playtest` · `is_running` |
+| **Luau / Batch** | `run_luau` · `batch` |
+| **Logs** | `get_output_log` · `get_recent_errors` |
+| **Playtest** | `playtest` · `is_running` · `playtest_probe` · `playtest_input` |
+| **Snapshots** | `snapshot` · `restore` · `list_snapshots` · `delete_snapshot` |
+| **Responsive UI** | `make_responsive` · `scan_responsive` |
+| **Audits** | `project_health` · `scan_perf` |
 | **Git** | `git_status` · `git_log` · `git_diff` · `git_show` · `git_commit` · `git_push` · `git_pull` · `git_restore` · `git_revert` · `git_recover` · `git_branch` · `git_remote` |
 | **Assets** | `search_assets` · `get_asset_details` · `get_asset_thumbnail` · `search_materials` · `insert_asset` |
 | **Security** | `scan_backdoors` · `list_studio_plugins` |
@@ -79,7 +87,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Multi-place** | `list_places` · `pull_place` · `copy_script_across` |
 | **Meta** | `ping` |
 
-In read-only mode (`TUFAN_READONLY=1`) the ~35 write tools are hidden; only inspection tools remain.
+In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden and the mixed read/write tools (`script_source`, `tag`) stay visible with their write paths blocked — 35 inspection tools remain. With `TUFAN_TOOLSET=core` only the ~22 everyday tools are exposed; both gates compose.
 
 ## How it works
 
@@ -94,7 +102,8 @@ In read-only mode (`TUFAN_READONLY=1`) the ~35 write tools are hidden; only insp
 | Variable | Effect |
 |---|---|
 | `TUFAN_PROJECT` | Project root for sync/git (use forward slashes). Defaults to cwd. |
-| `TUFAN_READONLY=1` | Safe/inspector mode — only read tools are exposed (no writes). |
+| `TUFAN_READONLY=1` | Safe/inspector mode — write tools hidden, `script_source`/`tag` readable but write-blocked. |
+| `TUFAN_TOOLSET=core` | Lean mode — expose only the ~22 everyday core tools (default `full` = all 71). |
 | `TUFAN_AUTOCOMMIT=1` | Auto-commit each Studio→file edit (also toggle-able in the widget). |
 | `TUFAN_AUTOPUSH=1` | Also push after each commit. |
 | `TUFAN_PROJECTS_DIR` | Base dir override for auto-registered projects. |
@@ -105,11 +114,10 @@ In read-only mode (`TUFAN_READONLY=1`) the ~35 write tools are hidden; only insp
 
 Where this can go — honest about what's built vs. next:
 
-- **Full Play Solo automation** — `start_playtest` drives *Run* mode today (server + physics, no player character). Full Play Solo (F5, with character + client + replicated GUI) has no plugin API yet; pairs with Roblox's official MCP for now.
-- **Runtime introspection in play** — `run_luau` is edit-mode (and works in Run mode, same DataModel). Targeting a live Play Solo client/server would need injected companion agents.
-- **Input simulation** — mouse / keyboard / character navigation via `VirtualInputManager` (plugin-feasible; not built).
+- **Full Play Solo automation** — `playtest` drives *Run* mode today (server + physics, no player character), and `playtest_input` can drive the character in a manually started F5 session. Starting/stopping full Play Solo (character + client + replicated GUI) has no plugin API yet; pairs with Roblox's official MCP for now.
+- **Runtime introspection in play** — `playtest_probe` runs structured Luau inside a running Run-mode sim. Targeting a live Play Solo client/server would need injected companion agents.
 - **Non-script instance mirroring** — models/parts as files on disk (geometry currently stays in Studio by reference, a plugin-API limit).
-- **More Power Tools** — `audit_performance`, `scan_deprecated`, `find_duplicates`, `project_health`, and extending `scan_backdoors` to attributes.
+- **More Power Tools** — `scan_deprecated` (flag deprecated API usage across all scripts).
 - **Asset pipeline** — inventory-insert for unowned assets, AI mesh/material generation (Roblox-privileged — pairs with the official MCP).
 - **macOS screenshots** — `capture_screenshot` is Windows-only today.
 - **Shared off-machine backup** — push every place mirror to a configured GitHub org with one click.

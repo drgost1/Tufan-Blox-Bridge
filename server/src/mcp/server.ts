@@ -44,7 +44,7 @@ const WRITE_TOOLS = new Set([
   // inspector mode.
 ]);
 
-// The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~18 so the model
+// The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~22 so the model
 // isn't choosing among 70 tools every call ("many tools ≠ many hands"). Everything
 // else still works — it's just off the default surface until TUFAN_TOOLSET=full
 // (the default). The everyday hands that cover ~95% of work.
@@ -61,7 +61,7 @@ export function createServer(): McpServer {
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
-  //   TUFAN_TOOLSET=core   → expose ONLY the lean core (~18 hands)
+  //   TUFAN_TOOLSET=core   → expose ONLY the lean core (~22 hands)
   const readOnly = runtimeConfig.readOnly;
   const coreOnly = process.env.TUFAN_TOOLSET === "core";
   if (readOnly || coreOnly) {
