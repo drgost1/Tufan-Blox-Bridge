@@ -95,6 +95,38 @@ def real_images():
     return [im for im in bpy.data.images
             if im.type == "IMAGE" and im.size[0] > 0 and im.name not in ("Render Result", "Viewer Node")]
 
+def to_srgb(c):
+    # Blender stores Base Color linear; Roblox Color3 components are sRGB.
+    out = []
+    for l in c[:3]:
+        if l <= 0.0031308:
+            out.append(round(12.92 * l, 4))
+        else:
+            out.append(round(1.055 * (l ** (1.0 / 2.4)) - 0.055, 4))
+    return out
+
+def mat_info(o):
+    # First material's Base Color (sRGB 0-1) + whether it's texture-driven.
+    # Roblox DROPS flat baseColorFactor on import (known bug) — the server's
+    # post-insert finisher recovers it onto MeshPart.Color using this report.
+    for s in o.material_slots:
+        m = s.material
+        if not m:
+            continue
+        col, has_tex = None, False
+        if m.use_nodes and m.node_tree:
+            for n in m.node_tree.nodes:
+                if n.type == "BSDF_PRINCIPLED":
+                    inp = n.inputs.get("Base Color")
+                    if inp:
+                        has_tex = len(inp.links) > 0
+                        col = to_srgb(list(inp.default_value))
+                    break
+        if col is None:
+            col = to_srgb(list(m.diffuse_color))
+        return col, has_tex
+    return None, False
+
 def inspect_report():
     objs = mesh_objs()
     report = {"objects": [], "warnings": []}
@@ -103,10 +135,13 @@ def inspect_report():
         tris = tri_count(o)
         total += tris
         mats = [s.material.name for s in o.material_slots if s.material]
+        base_color, has_texture = mat_info(o)
         rec = {
             "name": o.name,
             "tris": tris,
             "materials": mats,
+            "base_color": base_color,
+            "has_texture": has_texture,
             "uv_sets": len(o.data.uv_layers),
             "dimensions": [round(d, 3) for d in o.dimensions],
             "over_tri_limit": tris > 20000,

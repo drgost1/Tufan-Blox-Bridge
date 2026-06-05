@@ -11,6 +11,7 @@ import {
   startTextPreview,
   startImageTo3D,
   startRemesh,
+  getBalance,
   pollTask,
   downloadTask,
   driveGeneration,
@@ -154,11 +155,12 @@ export function registerMeshyTools(server: McpServer) {
       description:
         "Inspect or act on an existing Meshy task by id: status (poll progress), download (re-fetch " +
         "fresh signed URLs and save the GLB + PBR maps locally), remesh (retopologize an existing task's " +
-        "model to targetPolycount — 5 credits; use to bring a >20k-tri result under Roblox's limit " +
-        "without regenerating). Needs TUFAN_MESHY_KEY.",
+        "model to targetPolycount — 5 credits, textures preserved; use to bring a >20k-tri result under " +
+        "Roblox's limit without regenerating), balance (remaining account credits — no taskId needed). " +
+        "Needs TUFAN_MESHY_KEY.",
       inputSchema: {
-        taskId: z.string().describe("The Meshy task id"),
-        action: z.enum(["status", "download", "remesh"]).optional().describe("Default: status"),
+        taskId: z.string().optional().describe("The Meshy task id (not needed for action: balance)"),
+        action: z.enum(["status", "download", "remesh", "balance"]).optional().describe("Default: status"),
         targetPolycount: z.number().optional().describe("For remesh (default 18000 — safe under Roblox's 20k)"),
         waitSeconds: z.number().optional().describe("Poll budget for status/remesh (default 120, max 600)"),
       },
@@ -167,6 +169,11 @@ export function registerMeshyTools(server: McpServer) {
       const key = meshyKey();
       if (!key) return errorText(MESHY_KEY_HELP);
       try {
+        if ((action ?? "status") === "balance") {
+          const credits = await getBalance(key);
+          return text(`Meshy balance: ${credits} credits (~${Math.floor(credits / 30)} textured assets at ~30 each)`);
+        }
+        if (!taskId) return errorText("taskId is required for status/download/remesh.");
         switch (action ?? "status") {
           case "status": {
             const { done, task } = await pollTask(key, taskId, waitBudgetMs(waitSeconds));
@@ -183,6 +190,8 @@ export function registerMeshyTools(server: McpServer) {
             if (task.status !== "SUCCEEDED") return errorText(`Remesh failed: ${describeTask(task)}`);
             return downloadedText(await downloadTask(key, task.id), `Remeshed ${taskId} → ${task.id} (5 credits)`);
           }
+          default:
+            return errorText(`Unknown action "${action}"`);
         }
       } catch (e) {
         return errorText(`meshy_task failed: ${scrub((e as Error).message, key)}`);

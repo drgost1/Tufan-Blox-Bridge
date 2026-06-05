@@ -41,6 +41,21 @@ export function registerImportTools(server: McpServer) {
           .describe("Override auto-detect — e.g. Animation for a KeyframeSequence .rbxm"),
         parentPath: z.string().optional().describe("Where to insert in the place (default Workspace)"),
         insert: z.boolean().optional().describe("Insert into the place after upload (default true)"),
+        anchor: z.boolean().optional().describe("Anchor all parts after a Model insert (opt-in)"),
+        targetHeightStuds: z
+          .number()
+          .optional()
+          .describe("Scale the inserted Model so its height equals this many studs (opt-in)"),
+        collisionFidelity: z
+          .enum(["Default", "Hull", "Box", "PreciseConvexDecomposition"])
+          .optional()
+          .describe("Set on every MeshPart after a Model insert (opt-in; Hull = cheap static-prop choice)"),
+        onGround: z.boolean().optional().describe("Drop the inserted Model flush onto whatever is below it (opt-in)"),
+        position: z
+          .array(z.number())
+          .length(3)
+          .optional()
+          .describe("[x,y,z] world position for the inserted Model's pivot (opt-in)"),
         waitSeconds: z
           .number()
           .optional()
@@ -49,18 +64,27 @@ export function registerImportTools(server: McpServer) {
         place: placeArg,
       },
     },
-    async ({ filePath, name, description, assetType, parentPath, insert, waitSeconds, operationId, place }) => {
+    async ({ filePath, name, description, assetType, parentPath, insert, anchor, targetHeightStuds, collisionFidelity, onGround, position, waitSeconds, operationId, place }) => {
       const key = process.env.TUFAN_OPENCLOUD_KEY?.trim();
       if (!key) return errorText(OC_KEY_HELP);
       const waitMs = Math.min(Math.max(waitSeconds ?? 45, 5), 240) * 1000;
       const doInsert = insert !== false;
+      // Finishing is strictly OPT-IN here (v0.11 default behavior unchanged):
+      // it only runs when one of these args is explicitly passed.
+      const finishing = {
+        anchor: anchor === true,
+        targetHeightStuds,
+        collisionFidelity,
+        onGround: onGround === true,
+        position: position as [number, number, number] | undefined,
+      };
 
       try {
         // Resume path: poll an existing operation, then insert.
         if (operationId) {
           const op = await pollOperation(operationId, key, waitMs);
           if (!op) return errorText(`Operation ${operationId} still processing — retry with the same operationId.`);
-          return await finishOperation(op, assetType, name ?? "imported asset", doInsert, parentPath, place);
+          return await finishOperation(op, assetType, name ?? "imported asset", doInsert, parentPath, place, finishing);
         }
 
         if (!filePath) return errorText("Provide filePath (or operationId to resume a pending upload).");
@@ -75,7 +99,7 @@ export function registerImportTools(server: McpServer) {
               `Resume with: import_file({ operationId: "${up.operationId}"${up.kind !== "Model" ? `, assetType: "${up.kind}"` : ""} })`,
           );
         }
-        return await finishOperation(op, up.kind, up.displayName, doInsert, parentPath, place);
+        return await finishOperation(op, up.kind, up.displayName, doInsert, parentPath, place, finishing);
       } catch (e) {
         return errorText(`import_file failed: ${scrub((e as Error).message, key)}`);
       }

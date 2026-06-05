@@ -37,7 +37,14 @@ const IMG_MIME: Record<string, string> = {
 };
 
 type Lint = {
-  objects?: Array<{ name: string; tris: number; multi_material?: boolean; over_tri_limit?: boolean }>;
+  objects?: Array<{
+    name: string;
+    tris: number;
+    multi_material?: boolean;
+    over_tri_limit?: boolean;
+    base_color?: [number, number, number] | null;
+    has_texture?: boolean;
+  }>;
   warnings?: string[];
   oversize_textures?: Array<{ name: string; size: number[] }>;
   totals?: { objects: number; tris: number };
@@ -84,6 +91,21 @@ export function registerGenerateTools(server: McpServer) {
           .describe("Auto-decimate/downscale when the lint flags Roblox-limit violations (default true)"),
         parentPath: z.string().optional().describe("Where to insert in the place (default Workspace)"),
         insert: z.boolean().optional().describe("Insert into the place after upload (default true)"),
+        anchor: z.boolean().optional().describe("Anchor all parts after insert so the prop can't fall (default true)"),
+        targetHeightStuds: z
+          .number()
+          .optional()
+          .describe("Scale the inserted model so its height equals this many studs (a character is ~5)"),
+        collisionFidelity: z
+          .enum(["Default", "Hull", "Box", "PreciseConvexDecomposition"])
+          .optional()
+          .describe("Set on every MeshPart after insert — Hull is a good cheap choice for static props"),
+        onGround: z.boolean().optional().describe("After insert+scale, drop the model flush onto whatever is below it"),
+        position: z
+          .array(z.number())
+          .length(3)
+          .optional()
+          .describe("[x,y,z] world position for the inserted model's pivot (instead of onGround)"),
         waitSeconds: z.number().optional().describe("Max seconds for the generation stage (default 240, max 600)"),
         meshyTaskId: z.string().optional().describe("Resume from an existing Meshy task (skips generation + credits)"),
         confirm: z.boolean().optional().describe("Confirm the credit spend for a NEW generation"),
@@ -100,6 +122,11 @@ export function registerGenerateTools(server: McpServer) {
       autoFix,
       parentPath,
       insert,
+      anchor,
+      targetHeightStuds,
+      collisionFidelity,
+      onGround,
+      position,
       waitSeconds,
       meshyTaskId,
       confirm,
@@ -164,6 +191,7 @@ export function registerGenerateTools(server: McpServer) {
         report.push(`🧊 generated: ${describeTask(asset.task)}`, `GLB: ${glb}`);
 
         // ---- Stage 2: Blender lint + auto-fix (graceful without Blender) ---
+        let finalLint: Lint | undefined;
         const blender = await resolveBlender();
         if ("error" in blender) {
           report.push(
@@ -219,6 +247,7 @@ export function registerGenerateTools(server: McpServer) {
                 );
               }
             }
+            finalLint = lint;
           }
         }
 
@@ -245,7 +274,28 @@ export function registerGenerateTools(server: McpServer) {
           );
           return text(report.join("\n"));
         }
-        const final = await finishOperation(op, up.kind, up.displayName, insert !== false, parentPath, place);
+
+        // ---- Stage 4: post-insert finishing (anchor/rename/recolor/scale/place) ----
+        // Flat-color recovery list from the lint: objects whose material is NOT
+        // texture-driven lose their baseColorFactor on import (known Roblox bug).
+        const recolor = (finalLint?.objects ?? [])
+          .filter((o) => o.has_texture === false && Array.isArray(o.base_color))
+          .map((o) => ({ object: o.name, color: o.base_color as [number, number, number] }));
+        const finishing = {
+          anchor: anchor !== false,
+          targetHeightStuds,
+          collisionFidelity,
+          onGround,
+          position: position as [number, number, number] | undefined,
+          recolor,
+          attributes: {
+            ...(prompt ? { TufanPrompt: prompt.slice(0, 200) } : {}),
+            TufanMeshyTask: asset.task.id,
+            ...(op?.response?.assetId ? { TufanAssetId: String(op.response.assetId) } : {}),
+            TufanGeneratedAt: new Date().toISOString().slice(0, 10),
+          },
+        };
+        const final = await finishOperation(op, up.kind, up.displayName, insert !== false, parentPath, place, finishing);
         const finalText = final.content[0]?.text ?? "";
         report.push("", finalText);
         if (!final.isError && insert !== false) {

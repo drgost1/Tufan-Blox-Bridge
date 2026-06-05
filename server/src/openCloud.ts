@@ -12,6 +12,7 @@ import { basename, extname } from "node:path";
 import { text, errorText, type ToolText } from "./mcp/helpers.js";
 import { resolveTargetPlace, dispatchTo } from "./bridge/sessions.js";
 import { bumpPlace } from "./bridge/cache.js";
+import { finishModel, wantsFinishing, type FinishOptions } from "./finishing.js";
 
 export const OC_BASE = "https://apis.roblox.com/assets/v1";
 export const OC_MAX_BYTES = 20 * 1024 * 1024; // Open Cloud hard cap per (non-video) request
@@ -114,16 +115,16 @@ export function kindFromResponse(responseType: string | undefined): AssetKind | 
   return null;
 }
 
-/** Insert the uploaded asset into the place; returns a human line (never throws). */
+/** Insert the uploaded asset into the place; returns a human line + the inserted path (never throws). */
 export async function insertIntoPlace(
   kind: AssetKind,
   assetId: string,
   displayName: string,
   parentPath: string | undefined,
   place?: string | number,
-): Promise<string> {
+): Promise<{ line: string; insertedPath?: string }> {
   const target = resolveTargetPlace(place);
-  if (target.error) return `(not inserted — ${target.error})`;
+  if (target.error) return { line: `(not inserted — ${target.error})` };
   const parent = parentPath ?? "Workspace";
   try {
     if (kind === "Model") {
@@ -132,7 +133,7 @@ export async function insertIntoPlace(
         parentPath: parent,
       });
       bumpPlace(target.placeId!);
-      return `inserted at ${r?.path ?? parent}`;
+      return { line: `inserted at ${r?.path ?? parent}`, insertedPath: r?.path };
     }
     // Audio/Decal/Animation: create the wrapper instance, then VERIFY the id
     // property actually stuck — the plugin pcall-swallows failed property sets,
@@ -178,14 +179,14 @@ export async function insertIntoPlace(
       const check: any = await dispatchTo(target.placeId!, "getProperties", { path, names: [w.prop] });
       const got = String(check?.[w.prop] ?? "");
       if (!got.includes(expectedId)) {
-        return `created ${w.className} at ${path}, but ${w.prop} didn't stick (reads "${got}") — set it to ${contentId} manually`;
+        return { line: `created ${w.className} at ${path}, but ${w.prop} didn't stick (reads "${got}") — set it to ${contentId} manually`, insertedPath: path };
       }
     } catch {
-      return `created ${w.className} at ${path} (${w.prop} set to ${contentId}, read-back check unavailable)`;
+      return { line: `created ${w.className} at ${path} (${w.prop} set to ${contentId}, read-back check unavailable)`, insertedPath: path };
     }
-    return `inserted ${w.className} at ${path} (${w.prop} = ${contentId}, verified)`;
+    return { line: `inserted ${w.className} at ${path} (${w.prop} = ${contentId}, verified)`, insertedPath: path };
   } catch (e) {
-    return `(upload succeeded but insert failed: ${(e as Error).message} — insert manually with rbxassetid://${assetId})`;
+    return { line: `(upload succeeded but insert failed: ${(e as Error).message} — insert manually with rbxassetid://${assetId})` };
   }
 }
 
@@ -197,6 +198,7 @@ export async function finishOperation(
   insert: boolean,
   parentPath: string | undefined,
   place?: string | number,
+  finishing?: FinishOptions,
 ): Promise<ToolText> {
   const assetId: string | undefined = op?.response?.assetId;
   if (!assetId) return errorText(`Upload finished but no assetId in response: ${JSON.stringify(op).slice(0, 400)}`);
@@ -219,7 +221,13 @@ export async function finishOperation(
           `re-run with { operationId, assetType } or insert manually with rbxassetid://${assetId})`,
       );
     } else {
-      lines.push(await insertIntoPlace(resolvedKind, assetId, displayName, parentPath, place));
+      const ins = await insertIntoPlace(resolvedKind, assetId, displayName, parentPath, place);
+      lines.push(ins.line);
+      // v0.12 finishing layer: Model inserts only, and only when requested.
+      if (resolvedKind === "Model" && ins.insertedPath && finishing && wantsFinishing(finishing)) {
+        const fin = await finishModel(ins.insertedPath, finishing, place);
+        lines.push(fin.line);
+      }
     }
   }
   return text(lines.join("\n"));

@@ -81,9 +81,13 @@ export function startTextPreview(
   opts?: { targetPolycount?: number; topology?: "quad" | "triangle" },
 ): Promise<string> {
   const body: Record<string, unknown> = { mode: "preview", prompt };
-  // target_polycount on text-to-3d is supported per docs; the verified fallback
-  // for polycount control is the dedicated remesh endpoint (startRemesh).
-  if (opts?.targetPolycount) body.target_polycount = Math.round(opts.targetPolycount);
+  // VERIFIED (docs.meshy.ai): target_polycount is honored ONLY when
+  // should_remesh=true — and meshy-6 defaults should_remesh to FALSE, so the
+  // flag must be sent explicitly or the polycount budget is silently ignored.
+  if (opts?.targetPolycount) {
+    body.should_remesh = true;
+    body.target_polycount = Math.round(opts.targetPolycount);
+  }
   if (opts?.topology) body.topology = opts.topology;
   return startTask(key, "v2/text-to-3d", body);
 }
@@ -102,7 +106,11 @@ export function startImageTo3D(
   opts?: { enablePbr?: boolean; targetPolycount?: number; topology?: "quad" | "triangle" },
 ): Promise<string> {
   const body: Record<string, unknown> = { image_url: imageUrl, enable_pbr: opts?.enablePbr !== false };
-  if (opts?.targetPolycount) body.target_polycount = Math.round(opts.targetPolycount);
+  // Same should_remesh gate as text-to-3d (see startTextPreview).
+  if (opts?.targetPolycount) {
+    body.should_remesh = true;
+    body.target_polycount = Math.round(opts.targetPolycount);
+  }
   if (opts?.topology) body.topology = opts.topology;
   return startTask(key, "v1/image-to-3d", body);
 }
@@ -249,8 +257,21 @@ export async function driveGeneration(
 export function describeTask(task: MeshyTask): string {
   const bits = [`task ${task.id}`, task.mode ? `mode=${task.mode}` : "", `status=${task.status}`];
   if (typeof task.progress === "number" && task.status !== "SUCCEEDED") bits.push(`progress=${task.progress}%`);
+  // consumed_credits is in every task GET (0 for FAILED — Meshy auto-refunds).
+  if (typeof task.consumed_credits === "number") bits.push(`credits=${task.consumed_credits}`);
   if (task.task_error?.message) bits.push(`error="${task.task_error.message}"`);
   return bits.filter(Boolean).join(" ");
+}
+
+/** Account-level remaining credits (GET /openapi/v1/balance). */
+export async function getBalance(key: string): Promise<number> {
+  const res = await meshyFetch(key, "v1/balance");
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Meshy balance HTTP ${res.status}: ${scrub(body.slice(0, 200), key)}`);
+  const j: any = JSON.parse(body);
+  const n = Number(j?.balance ?? j?.result?.balance ?? j?.result);
+  if (!Number.isFinite(n)) throw new Error(`Meshy balance: unexpected response ${scrub(body.slice(0, 200), key)}`);
+  return n;
 }
 
 export function meshyKey(): string | undefined {
