@@ -147,7 +147,29 @@ async function insertIntoPlace(
       Animation: { className: "Animation", prop: "AnimationId" },
     };
     const w = wrapper[kind as Exclude<AssetKind, "Model">];
-    const contentId = `rbxassetid://${assetId}`;
+
+    // Image uploads come back as a DECAL-WRAPPER asset, not a raw image. Setting
+    // Decal.Texture = rbxassetid://<decalId> does NOT unwrap → renders blank. Load
+    // the wrapper and read the inner image reference Roblox actually stores, and
+    // use that. Audio/Animation ids are not wrapped, so they're used directly.
+    let contentId = `rbxassetid://${assetId}`;
+    if (kind === "Decal") {
+      try {
+        const unwrap: any = await dispatchTo(target.placeId!, "runLuau", {
+          code:
+            `local h = game:GetService("InsertService"):LoadAsset(${Number(assetId)})\n` +
+            `local t for _,d in ipairs(h:GetDescendants()) do if d:IsA("Decal") or d:IsA("Texture") then t=d.Texture break end end\n` +
+            `h:Destroy() return t or ""`,
+        });
+        const inner = String(unwrap?.result ?? "").trim();
+        if (inner) contentId = inner; // e.g. http://www.roblox.com/asset/?id=<imageId>
+      } catch {
+        // fall through with rbxassetid://<decalId> — verify below will flag it
+      }
+    }
+    // What id we expect to read back (the digits in contentId).
+    const expectedId = (contentId.match(/\d+/g)?.pop()) ?? assetId;
+
     const created: any = await dispatchTo(target.placeId!, "createInstance", {
       className: w.className,
       parentPath: parent,
@@ -159,7 +181,7 @@ async function insertIntoPlace(
     try {
       const check: any = await dispatchTo(target.placeId!, "getProperties", { path, names: [w.prop] });
       const got = String(check?.[w.prop] ?? "");
-      if (!got.includes(assetId)) {
+      if (!got.includes(expectedId)) {
         return `created ${w.className} at ${path}, but ${w.prop} didn't stick (reads "${got}") — set it to ${contentId} manually`;
       }
     } catch {

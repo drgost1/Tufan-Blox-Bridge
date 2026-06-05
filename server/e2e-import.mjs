@@ -4,7 +4,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-const [, , filePath, assetType, parentPath] = process.argv;
+const [, , filePath, assetType, parentPath, place] = process.argv;
 if (!filePath) {
   console.error("usage: node e2e-import.mjs <filePath> [assetType] [parentPath]");
   process.exit(2);
@@ -36,6 +36,7 @@ if (!connected) console.log("(no Studio connection — upload will still run, in
 const args = { filePath, waitSeconds: 90 };
 if (assetType) args.assetType = assetType;
 if (parentPath) args.parentPath = parentPath;
+if (place) args.place = isNaN(Number(place)) ? place : Number(place);
 console.log(`\ncalling import_file(${JSON.stringify(args)})...`);
 const started = Date.now();
 const res = await client.callTool({ name: "import_file", arguments: args });
