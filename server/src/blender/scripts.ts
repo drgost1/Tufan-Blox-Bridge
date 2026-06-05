@@ -305,9 +305,14 @@ def run_op():
                 "blender --command extension sync && blender --command extension install cell_fracture --enable "
                 "(or from extensions.blender.org/add-ons/cell-fracture), then retry."}
     before = set(o.name for o in bpy.data.objects)
-    for o in list(mesh_objs()):
+    originals = list(mesh_objs())
+    for o in originals:
         select_only([o], o)
         bpy.ops.object.add_fracture_cell_objects(source_limit=shards, use_recenter=True)
+    # Cell Fracture ADDS cells next to the source — remove the originals so the
+    # export contains shards only (the destructible pieces).
+    for o in originals:
+        bpy.data.objects.remove(o, do_unlink=True)
     pieces = [o.name for o in mesh_objs() if o.name not in before]
     if OUT:
         export_any(OUT)

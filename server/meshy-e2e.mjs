@@ -22,9 +22,14 @@ const client = new Client({ name: "meshy-e2e", version: "0.0.1" });
 await client.connect(transport);
 
 async function call(args) {
-  const r = await client.callTool({ name: "meshy_generate", arguments: args });
+  // SDK default request timeout is 60s — generation polls run longer.
+  const r = await client.callTool({ name: "meshy_generate", arguments: args }, undefined, { timeout: 330_000 });
   return { text: r.content?.[0]?.text ?? "", isError: Boolean(r.isError) };
 }
+process.on("unhandledRejection", (e) => {
+  console.log(`UNHANDLED: ${e?.message ?? e}`);
+  process.exit(1);
+});
 
 let ok = true;
 const check = (label, pass, detail = "") => {

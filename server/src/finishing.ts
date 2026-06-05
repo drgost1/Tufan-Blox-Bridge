@@ -45,7 +45,9 @@ export function wantsFinishing(o: FinishOptions): boolean {
   );
 }
 
-const BODY = `
+// Exported so finishing-e2e.mjs can drive the EXACT shipped Luau through the
+// run_luau tool against a live place without needing API keys.
+export const FINISH_BODY = `
 local root = resolve(P.path)
 if not root then return { error = "finish target not found: " .. tostring(P.path) } end
 local CHS = game:GetService("ChangeHistoryService")
@@ -218,13 +220,24 @@ export async function finishModel(
     position: opts.position,
   });
   try {
-    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: `${PRELUDE}\nlocal P = ${P}\n${BODY}` });
+    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: `${PRELUDE}\nlocal P = ${P}\n${FINISH_BODY}` });
     const data = r?.resultJson;
     if (!data) return { line: "(finishing returned no result)" };
     if (data.error) return { line: `(finishing failed: ${data.error})` };
     bumpPlace(target.placeId!);
-    const size = Array.isArray(data.finalSize) ? `${data.finalSize.join(" × ")} studs` : "?";
-    const what = (data.changed ?? []).join(", ") || "nothing to do";
+    // runLuau's encodeDeep serializes Luau arrays as {"1":...,"2":...} objects —
+    // normalize before formatting (live-E2E finding).
+    const arr = (v: any): any[] =>
+      Array.isArray(v)
+        ? v
+        : v && typeof v === "object"
+          ? Object.keys(v)
+              .sort((a, b) => Number(a) - Number(b))
+              .map((k) => v[k])
+          : [];
+    const sizeArr = arr(data.finalSize);
+    const size = sizeArr.length ? `${sizeArr.join(" × ")} studs` : "?";
+    const what = arr(data.changed).join(", ") || "nothing to do";
     return { line: `finished: ${what} — final size ${size} at ${data.finalPath}`, finalPath: data.finalPath };
   } catch (e) {
     return { line: `(finishing failed: ${(e as Error).message})` };

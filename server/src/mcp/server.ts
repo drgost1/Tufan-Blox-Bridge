@@ -72,7 +72,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.11.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.12.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
