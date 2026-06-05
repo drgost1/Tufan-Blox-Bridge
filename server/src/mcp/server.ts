@@ -23,6 +23,9 @@ import { registerResponsiveTools } from "./tools/responsive.js";
 import { registerHealthTools } from "./tools/health.js";
 import { registerImportTools } from "./tools/importing.js";
 import { registerSpatialTools } from "./tools/spatial.js";
+import { registerBlenderTools } from "./tools/blender.js";
+import { registerMeshyTools } from "./tools/meshy.js";
+import { registerGenerateTools } from "./tools/generate.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -45,6 +48,11 @@ const WRITE_TOOLS = new Set([
   "import_file",
   // place_on raycasts to a surface and moves the object flush onto it.
   "place_on",
+  // asset-generation pipeline: generate_asset uploads + inserts (like import_file);
+  // meshy_generate spends real Meshy credits; blender_run executes native code on
+  // the host (stricter posture than the Studio-sandboxed run_luau). meshy_task and
+  // blender_process stay visible — local/status-only, can't mutate place or wallet.
+  "generate_asset", "meshy_generate", "blender_run",
   // NOTE: script_source + tag are mixed read/write — NOT hidden here; their write
   // path is guarded at call time via requireWritable() so reads stay available in
   // inspector mode.
@@ -64,7 +72,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.10.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.11.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
@@ -115,6 +123,9 @@ export function createServer(): McpServer {
   registerHealthTools(server);
   registerImportTools(server);
   registerSpatialTools(server);
+  registerBlenderTools(server);
+  registerMeshyTools(server);
+  registerGenerateTools(server);
 
   return server;
 }
