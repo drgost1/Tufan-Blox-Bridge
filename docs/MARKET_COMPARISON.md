@@ -13,7 +13,7 @@ competitor is ahead, it says so.
 
 | Tool | What it is | License / price | Status |
 |---|---|---|---|
-| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.10.0) |
+| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security + asset generation, one install | MIT, free | Active (v0.11.0) |
 | **Roblox built-in MCP** | Official server shipping inside Studio + Assistant | First-party, free | Active, recommended by Roblox |
 | `Roblox/studio-rust-mcp-server` | Official standalone reference server | Apache-2.0, free | **Archived Apr 2026** |
 | **WEPPY** (`hope1026`) | AI control + sync, freemium | Free + paid **Pro** | Active |
@@ -24,7 +24,7 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ 76 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 81 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
 | Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
 | Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
 | Read-only / safe mode | ✅ (`TUFAN_READONLY=1`) | — | — | — | ✅ (Inspector, 31) | — |
@@ -41,6 +41,9 @@ competitor is ahead, it says so.
 | **Multi-place** (cross-place copy, pull) | ✅ | — | — | Pro only | — | — |
 | OS-level screenshot → AI | ✅ (Win) | — | — | — | — | — |
 | Asset search / insert | ✅ | ✅ (insert_model) | ✅ | ✅ | ✅ | ✅ |
+| **AI 3D-asset generation** (text/image → lint/fix → upload → insert) | ✅ | ⚠️ mesh-gen only, no pipeline | — | — | — | — |
+| Headless Blender processing (decimate/split/fracture/convert) | ✅ | — | — | — | — | — |
+| Local-file import via Open Cloud (.fbx/.glb/audio/images) | ✅ | — | — | — | — | — |
 | Terrain tools | — | ✅ | — | ✅ (Pro) | partial | ✅ |
 | Disconnect read-only lock | ✅ | — | — | — | — | — |
 
@@ -92,6 +95,12 @@ favor of the built-in server. Listed for history only; don't start here.
    Security is a real pain in the Roblox ecosystem and nobody else addresses it.
 4. **Free two-way sync.** WEPPY's bidirectional sync is Pro-only; Tufan's is free.
 5. **Multi-place free.** Cross-place script copy and pull, no paywall.
+6. **Only full AI asset pipeline.** `generate_asset` goes text-prompt → Meshy AI
+   mesh → headless-Blender Roblox-limit lint + auto-fix (20k tris, 1024px
+   textures) → Open Cloud upload → inserted Model, in one tool call. Roblox's
+   built-in MCP has first-party mesh *generation* (Cube 3D), but no lint/fix
+   pass, no local Blender stage, and no arbitrary local-file import; nobody else
+   has any of it. (Meshy stage needs the user's own Meshy API key.)
 
 ## Where Tufan is behind (honest gaps)
 
