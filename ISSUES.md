@@ -5,11 +5,11 @@ live place (Chomolokko Beach & Bars), with evidence, impact, and concrete fixes.
 
 **Status:** ✅ Fixed · 🛠️ Partially fixed · ⛔ Open · ℹ️ Not our bug
 
-> Current version: **v0.8.0**. After upgrading, restart the MCP client
-> (npx pulls latest) **and** reload the `.rbxm` in Studio. Server + plugin must
-> match.
+> Current version: **v0.9.0** (server-only — the v0.8.0 plugin `.rbxm` stays
+> current). After upgrading, restart the MCP client (npx pulls latest).
 
-## ✅ What landed in v0.6.1 → v0.8.0
+## ✅ What landed in v0.6.1 → v0.9.0
+- **Local file import (v0.9.0)** — new `import_file` tool: uploads `.rbxm`/`.rbxmx`/`.fbx`/`.gltf`/`.glb`/audio/images from disk to the user's own account via the Open Cloud Assets API (`TUFAN_OPENCLOUD_KEY`), polls processing, then inserts into the place (Model → `insertAsset`; audio/image/animation → `Sound`/`Decal`/`Animation` wrapper instance). Your own uploads always pass the H3 LoadAsset ownership wall. Resumable via `operationId` for slow audio moderation; quota + moderation surfaced. Server-side only — zero plugin changes.
 - **Serialization round-trip (v0.8.0 keystone)** — NumberSequence, ColorSequence, NumberRange, Rect, Font, PhysicalProperties now round-trip through `get_properties`/`set_property`/`mass_edit`/`describe`; particle curves, UI gradients, and springs are finally editable (they silently broke before).
 - **Surgical tool merges (v0.8.0, breaking renames)** — `script_source` (read+write), `tag` (get/add/remove), `playtest` (start/stop/pause).
 - **New tools** — `describe`, `batch`, `patch_script`, `snapshot`/`restore`/`list_snapshots`/`delete_snapshot`, `get_recent_errors`, `scan_perf`, `playtest_probe`, `playtest_input` (v0.6.1); `make_responsive`, `scan_responsive` (v0.7.0); `project_health`, `find_duplicates`, `mass_set_attribute` (v0.8.0).
@@ -55,9 +55,12 @@ server/client DataModel. Real fix = inject companion runtime agents (a
 ### H3 · `insert_asset` free models &nbsp; 🛠️ Partially fixed
 A 403 now returns an **actionable message** ("you don't own this asset — take it
 via Toolbox → Add to Inventory, then retry") instead of a raw error, and the tool
-description states the ownership rule. **Still open:** a dedicated
-`insert_owned_asset` (browse/insert from the user's inventory) — Roblox's
-`LoadAsset` fundamentally can't load unowned assets, so this is the real path.
+description states the ownership rule. **v0.9.0:** `import_file` sidesteps the
+wall entirely for the user's own content — local files upload to their account
+(Open Cloud) and insert cleanly, since you always own what you upload.
+**Still open:** a dedicated `insert_owned_asset` (browse/insert from the user's
+existing inventory) — Roblox's `LoadAsset` fundamentally can't load unowned
+assets, so inventory browse + take is the remaining path for marketplace items.
 
 ### H4 · `pull_place` overwrote uncommitted files &nbsp; ✅ Fixed (v0.2.0)
 The data-loss bug. `pullPlace` now calls `snapshotIfDirty()` **before** writing —

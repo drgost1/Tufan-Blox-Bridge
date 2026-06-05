@@ -13,7 +13,7 @@ competitor is ahead, it says so.
 
 | Tool | What it is | License / price | Status |
 |---|---|---|---|
-| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.8.0) |
+| **Tufan-Blox-Bridge** | AI control + 2-way sync + git + security, one install | MIT, free | Active (v0.9.0) |
 | **Roblox built-in MCP** | Official server shipping inside Studio + Assistant | First-party, free | Active, recommended by Roblox |
 | `Roblox/studio-rust-mcp-server` | Official standalone reference server | Apache-2.0, free | **Archived Apr 2026** |
 | **WEPPY** (`hope1026`) | AI control + sync, freemium | Free + paid **Pro** | Active |
@@ -24,7 +24,7 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ 71 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 72 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
 | Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
 | Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
 | Read-only / safe mode | ✅ (`TUFAN_READONLY=1`) | — | — | — | ✅ (Inspector, 31) | — |
