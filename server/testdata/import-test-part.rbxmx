@@ -1,0 +1,19 @@
+<roblox version="4">
+  <Item class="Model" referent="RBX0">
+    <Properties>
+      <string name="Name">TufanImportTestModel</string>
+    </Properties>
+    <Item class="Part" referent="RBX1">
+      <Properties>
+        <string name="Name">TufanImportTestPart</string>
+        <bool name="Anchored">true</bool>
+        <Vector3 name="size">
+          <X>4</X>
+          <Y>1</Y>
+          <Z>2</Z>
+        </Vector3>
+        <Color3uint8 name="Color3uint8">4288914085</Color3uint8>
+      </Properties>
+    </Item>
+  </Item>
+</roblox>

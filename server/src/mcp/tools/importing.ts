@@ -184,9 +184,11 @@ async function finishOperation(
   if (!assetId) return errorText(`Upload finished but no assetId in response: ${JSON.stringify(op).slice(0, 400)}`);
   // The response's own assetType wins; fall back to what the caller knew.
   const resolvedKind = kindFromResponse(op?.response?.assetType) ?? kindHint ?? null;
+  // Observed live: the API returns "Approved" (mixed case), not the documented
+  // MODERATION_STATE_APPROVED — compare case-insensitively.
   const modState = String(op?.response?.moderationResult?.moderationState ?? "");
   const lines = [`Uploaded "${op?.response?.displayName ?? displayName}" → assetId ${assetId} (rbxassetid://${assetId})`];
-  if (modState && !modState.includes("APPROVED")) {
+  if (modState && !modState.toUpperCase().includes("APPROVED")) {
     lines.push(
       `⚠ moderation: ${modState} — the asset exists but stays private/unusable until Roblox approves it` +
         (resolvedKind === "Audio" ? " (audio review can take a while)" : ""),
