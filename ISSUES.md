@@ -5,10 +5,11 @@ live place (Chomolokko Beach & Bars), with evidence, impact, and concrete fixes.
 
 **Status:** ✅ Fixed · 🛠️ Partially fixed · ⛔ Open · ℹ️ Not our bug
 
-> Current version: **v0.9.0** (server-only — the v0.8.0 plugin `.rbxm` stays
+> Current version: **v0.10.0** (server-only — the v0.8.0 plugin `.rbxm` stays
 > current). After upgrading, restart the MCP client (npx pulls latest).
 
-## ✅ What landed in v0.6.1 → v0.9.0
+## ✅ What landed in v0.6.1 → v0.10.0
+- **Spatial-awareness layer (v0.10.0)** — 4 new tools that relate the viewport to world coordinates: `scene_state` (camera intrinsics + every visible object's world AND on-screen pixel coords via `WorldToScreenPoint` — grounds a screenshot), `pick` (raycast a screen point → world hit + surface normal; powers identify + tracing), `place_on` (raycast to a surface/target/ground, then sit the object FLUSH via bounding-box offset, with optional align-to-normal + grid snap), `objects_in_region` (`GetPartBoundsInBox/Radius` query). Server-only — each is a canned read-only Luau dispatch through `runLuau` (the three reads are read-only-safe and visible in `TUFAN_READONLY`; only `place_on` is write-gated). Closes the "AI can't relate what it sees to coordinates" gap. Zero plugin changes.
 - **Local file import (v0.9.0)** — new `import_file` tool: uploads `.rbxm`/`.rbxmx`/`.fbx`/`.gltf`/`.glb`/audio/images from disk to the user's own account via the Open Cloud Assets API (`TUFAN_OPENCLOUD_KEY`), polls processing, then inserts into the place (Model → `insertAsset`; audio/image/animation → `Sound`/`Decal`/`Animation` wrapper instance). Your own uploads always pass the H3 LoadAsset ownership wall. Resumable via `operationId` for slow audio moderation; quota + moderation surfaced. Server-side only — zero plugin changes.
 - **Serialization round-trip (v0.8.0 keystone)** — NumberSequence, ColorSequence, NumberRange, Rect, Font, PhysicalProperties now round-trip through `get_properties`/`set_property`/`mass_edit`/`describe`; particle curves, UI gradients, and springs are finally editable (they silently broke before).
 - **Surgical tool merges (v0.8.0, breaking renames)** — `script_source` (read+write), `tag` (get/add/remove), `playtest` (start/stop/pause).

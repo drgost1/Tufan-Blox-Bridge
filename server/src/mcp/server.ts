@@ -22,6 +22,7 @@ import { registerSnapshotTools } from "./tools/snapshots.js";
 import { registerResponsiveTools } from "./tools/responsive.js";
 import { registerHealthTools } from "./tools/health.js";
 import { registerImportTools } from "./tools/importing.js";
+import { registerSpatialTools } from "./tools/spatial.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -42,6 +43,8 @@ const WRITE_TOOLS = new Set([
   "copy_script_across", "playtest_probe", "pull_place",
   // import_file uploads to the user's Roblox account AND inserts into the place.
   "import_file",
+  // place_on raycasts to a surface and moves the object flush onto it.
+  "place_on",
   // NOTE: script_source + tag are mixed read/write — NOT hidden here; their write
   // path is guarded at call time via requireWritable() so reads stay available in
   // inspector mode.
@@ -57,10 +60,11 @@ const CORE_TOOLS = new Set([
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
   "patch_script", "run_luau", "project_health",
   "capture_screenshot", "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
+  "scene_state", "pick",
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.9.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.10.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
@@ -110,6 +114,7 @@ export function createServer(): McpServer {
   registerResponsiveTools(server);
   registerHealthTools(server);
   registerImportTools(server);
+  registerSpatialTools(server);
 
   return server;
 }
