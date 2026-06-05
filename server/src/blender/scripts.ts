@@ -288,14 +288,22 @@ def run_op():
   fracture: `
 def run_op():
     shards = int(float(ARGS.get("shards", "10")))
-    enabled = False
-    try:
-        enabled = addon_utils.enable("object_fracture_cell", default_set=False) is not None
-    except Exception:
-        enabled = False
-    if not enabled or not hasattr(bpy.ops.object, "add_fracture_cell_objects"):
-        return {"error": "Cell Fracture add-on not available. Install it from extensions.blender.org/add-ons/cell-fracture (it ships separately since Blender 4.2), enable it once in Blender's preferences, then retry."}
+    # IMPORTANT: load_input() FIRST — reset_scene()'s read_factory_settings
+    # resets enabled add-ons, which would wipe a just-enabled Cell Fracture.
     load_input()
+    # The extension module is bl_ext.<repo>.cell_fracture (4.2+); the legacy
+    # bundled add-on (<=4.1) was object_fracture_cell. Try both.
+    for _mod in ("bl_ext.blender_org.cell_fracture", "object_fracture_cell"):
+        try:
+            addon_utils.enable(_mod, default_set=False)
+        except Exception:
+            pass
+        if hasattr(bpy.ops.object, "add_fracture_cell_objects"):
+            break
+    if not hasattr(bpy.ops.object, "add_fracture_cell_objects"):
+        return {"error": "Cell Fracture extension not available. Install it headlessly with: "
+                "blender --command extension sync && blender --command extension install cell_fracture --enable "
+                "(or from extensions.blender.org/add-ons/cell-fracture), then retry."}
     before = set(o.name for o in bpy.data.objects)
     for o in list(mesh_objs()):
         select_only([o], o)
@@ -329,6 +337,87 @@ def run_op():
         apply_all_modifiers(o)
     export_any(OUT)
     return {"converted": OUT, "inspect": inspect_report()}
+`,
+
+  thumbnail: `
+def run_op():
+    import mathutils
+    size = int(float(ARGS.get("size", "512")))
+    load_input()
+    sc = bpy.context.scene
+
+    # frame the union of all mesh world-space bounding corners
+    mn = mathutils.Vector((1e9, 1e9, 1e9))
+    mx = mathutils.Vector((-1e9, -1e9, -1e9))
+    for o in mesh_objs():
+        for c in o.bound_box:
+            w = o.matrix_world @ mathutils.Vector(c)
+            mn = mathutils.Vector((min(mn[i], w[i]) for i in range(3)))
+            mx = mathutils.Vector((max(mx[i], w[i]) for i in range(3)))
+    if mn.x > mx.x:
+        return {"error": "no mesh objects to render"}
+    center = (mn + mx) * 0.5
+    radius = max((mx - mn).length * 0.5, 0.001)
+
+    # 3/4 hero-angle camera framed by the bounding radius
+    cam_data = bpy.data.cameras.new("TufanCam")
+    cam = bpy.data.objects.new("TufanCam", cam_data)
+    sc.collection.objects.link(cam)
+    sc.camera = cam
+    cam_data.lens = 50
+    direction = mathutils.Vector((1.0, -1.0, 0.65)).normalized()
+    dist = radius / math.tan(cam_data.angle * 0.5) * 1.3
+    cam.location = center + direction * dist
+    look = (center - cam.location).normalized()
+    cam.rotation_euler = look.to_track_quat("-Z", "Y").to_euler()
+
+    # key + fill suns and a neutral ambient world (no HDRI dependency)
+    key = bpy.data.objects.new("TufanKey", bpy.data.lights.new("TufanKey", "SUN"))
+    key.data.energy = 4.0
+    key.rotation_euler = mathutils.Euler((math.radians(50), 0.0, math.radians(35)))
+    sc.collection.objects.link(key)
+    fill = bpy.data.objects.new("TufanFill", bpy.data.lights.new("TufanFill", "SUN"))
+    fill.data.energy = 1.5
+    fill.rotation_euler = mathutils.Euler((math.radians(60), 0.0, math.radians(-120)))
+    sc.collection.objects.link(fill)
+    if sc.world is None:
+        sc.world = bpy.data.worlds.new("TufanWorld")
+    sc.world.use_nodes = True
+    bg = sc.world.node_tree.nodes.get("Background")
+    if bg:
+        bg.inputs[0].default_value = (0.9, 0.9, 0.9, 1.0)
+        bg.inputs[1].default_value = 0.6
+
+    sc.render.resolution_x = size
+    sc.render.resolution_y = size
+    sc.render.film_transparent = True
+    sc.render.image_settings.file_format = "PNG"
+    sc.render.image_settings.color_mode = "RGBA"
+    out = OUT or os.path.join(os.path.dirname(IN), "thumbnail.png")
+    sc.render.filepath = out
+
+    # EEVEE(-Next) is fast but needs a GPU/display context (fails on true-headless
+    # boxes); Cycles CPU always works. Try fast first, fall back to reliable.
+    avail = set(e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items)
+    engines = [e for e in ("BLENDER_EEVEE_NEXT", "BLENDER_EEVEE") if e in avail] + ["CYCLES"]
+    used, last_err = None, None
+    for eng in engines:
+        try:
+            sc.render.engine = eng
+            if eng.startswith("BLENDER_EEVEE"):
+                sc.eevee.taa_render_samples = 16
+            else:
+                sc.cycles.samples = 32
+                sc.cycles.use_denoising = True
+                sc.cycles.device = "CPU"
+            bpy.ops.render.render(write_still=True)
+            used = eng
+            break
+        except Exception as e:
+            last_err = str(e)
+    if not used:
+        raise RuntimeError("render failed on every engine: " + str(last_err))
+    return {"thumbnail": out, "engine": used, "size": size}
 `,
 
   downscale_textures: `

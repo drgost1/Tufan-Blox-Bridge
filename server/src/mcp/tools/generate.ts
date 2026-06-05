@@ -18,6 +18,8 @@ import {
   startImageTo3D,
   driveGeneration,
   describeTask,
+  pollTask,
+  downloadTask,
 } from "../../meshy/client.js";
 import { resolveBlender } from "../../blender/detect.js";
 import { runBlender } from "../../blender/runner.js";
@@ -109,6 +111,14 @@ export function registerGenerateTools(server: McpServer) {
         waitSeconds: z.number().optional().describe("Max seconds for the generation stage (default 240, max 600)"),
         meshyTaskId: z.string().optional().describe("Resume from an existing Meshy task (skips generation + credits)"),
         confirm: z.boolean().optional().describe("Confirm the credit spend for a NEW generation"),
+        previewFirst: z
+          .boolean()
+          .optional()
+          .describe(
+            "Text-to-3D only: stop after the geometry preview (20cr) and return a rendered thumbnail to " +
+              "approve BEFORE spending the texture refine (+10cr) and uploading. Approve by re-calling " +
+              "with { meshyTaskId } (without previewFirst).",
+          ),
         place: placeArg,
       },
     },
@@ -130,6 +140,7 @@ export function registerGenerateTools(server: McpServer) {
       waitSeconds,
       meshyTaskId,
       confirm,
+      previewFirst,
       place,
     }) => {
       const mKey = meshyKey();
@@ -143,6 +154,61 @@ export function registerGenerateTools(server: McpServer) {
       const report: string[] = [];
 
       try {
+        // ---- Stage 0 (opt-in): preview-and-approve — stop at the geometry
+        // preview, render a thumbnail, let the user approve before the refine
+        // spend + upload. Approval = re-call with meshyTaskId (no previewFirst);
+        // driveGeneration then auto-chains the refine from the SUCCEEDED preview.
+        if (previewFirst && (prompt || meshyTaskId) && !imageUrl && !imagePath) {
+          let pTaskId = meshyTaskId;
+          if (!pTaskId) {
+            if (!confirm && !autoConfirm()) {
+              return text(
+                `previewFirst: this will spend ~20 Meshy credits (~$0.40) for an UNTEXTURED geometry preview ` +
+                  `of "${prompt}". You approve the +10cr texture refine separately after seeing the thumbnail.\n` +
+                  `Re-run with confirm: true to proceed.`,
+              );
+            }
+            pTaskId = await startTextPreview(mKey, prompt!, { targetPolycount: triBudget, topology: "triangle" });
+          }
+          const { done, task } = await pollTask(mKey, pTaskId, Math.max(deadline - Date.now(), 10_000));
+          if (!done) {
+            return text(
+              `${describeTask(task)} — preview still generating.\n` +
+                `Resume with: generate_asset({ meshyTaskId: "${task.id}", previewFirst: true }) — no extra credits.`,
+            );
+          }
+          if (task.status !== "SUCCEEDED") return errorText(`Meshy preview failed: ${describeTask(task)}`);
+          if (task.mode === "preview") {
+            const asset = await downloadTask(mKey, task.id);
+            const approveLine =
+              `Approve → generate_asset({ meshyTaskId: "${task.id}"${name ? `, name: "${name}"` : ""}` +
+              `${parentPath ? `, parentPath: "${parentPath}"` : ""} }) to texture (+10cr), upload and insert. ` +
+              `Or discard — the preview GLB stays at ${asset.glbPath}.`;
+            const blender = await resolveBlender();
+            if ("error" in blender) {
+              return text(`Preview ready (untextured): ${describeTask(task)}\nGLB: ${asset.glbPath}\n(no Blender found for a thumbnail render)\n${approveLine}`);
+            }
+            const thumb = await blenderOp(blender.path, "thumbnail", {
+              in: asset.glbPath!,
+              out: join(asset.dir, `${task.id}.thumb.png`),
+            });
+            if (thumb.error || !thumb.result?.thumbnail) {
+              return text(`Preview ready (untextured): ${describeTask(task)}\nGLB: ${asset.glbPath}\n(thumbnail render failed: ${(thumb.error ?? "no output").split("\n")[0]})\n${approveLine}`);
+            }
+            const png = await readFile(String(thumb.result.thumbnail));
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `Preview ready (untextured geometry, ${describeTask(task)}):\n${approveLine}`,
+                },
+                { type: "image" as const, data: png.toString("base64"), mimeType: "image/png" },
+              ],
+            };
+          }
+          // taskId already past the preview stage — fall through to the normal flow.
+        }
+
         // ---- Stage 1: Meshy generation (or resume) -------------------------
         let genTaskId = meshyTaskId;
         if (!genTaskId) {

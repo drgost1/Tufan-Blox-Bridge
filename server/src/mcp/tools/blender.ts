@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stat } from "node:fs/promises";
+import { stat, readFile } from "node:fs/promises";
 import { dirname, basename, extname, join } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { text, errorText } from "../helpers.js";
@@ -35,8 +35,9 @@ export function registerBlenderTools(server: McpServer) {
         "one MeshPart per material object), split_chunks (bisect oversized meshes into ≤`target`-tri " +
         "pieces), fracture (Cell Fracture shards for destructibles — needs the Cell Fracture extension " +
         "installed), set_origins (per-object geometry-median origins), convert (re-export, e.g. obj→glb " +
-        "for import_file), downscale_textures (cap textures at `texLimit`, default 1024). Needs Blender " +
-        "installed (free) — auto-detected or TUFAN_BLENDER_PATH.",
+        "for import_file), downscale_textures (cap textures at `texLimit`, default 1024), thumbnail " +
+        "(render a 512px PNG preview of the model — SEE an asset before uploading/spending; returned as " +
+        "an image). Needs Blender installed (free) — auto-detected or TUFAN_BLENDER_PATH.",
       inputSchema: {
         inputFile: z.string().describe("Absolute path of the local 3D file to process"),
         action: z.enum(CANNED_OPS as [string, ...string[]]).describe("Which canned operation to run"),
@@ -63,7 +64,10 @@ export function registerBlenderTools(server: McpServer) {
         action === "inspect"
           ? undefined
           : outputFile ??
-            join(dirname(inputFile), `${basename(inputFile, extname(inputFile))}.${action}.glb`);
+            join(
+              dirname(inputFile),
+              `${basename(inputFile, extname(inputFile))}.${action}.${action === "thumbnail" ? "png" : "glb"}`,
+            );
 
       const args: Record<string, string | number> = { in: inputFile };
       if (out) args.out = out;
@@ -82,6 +86,20 @@ export function registerBlenderTools(server: McpServer) {
       // A canned op that returns {error} (e.g. missing Cell Fracture) is a tool error.
       if (r.ok && r.result && typeof r.result === "object" && r.result.error) {
         return errorText(String(r.result.error));
+      }
+      // thumbnail → return the rendered PNG as an MCP image block (capture.ts pattern).
+      if (action === "thumbnail" && r.ok && r.result?.thumbnail) {
+        try {
+          const png = await readFile(String(r.result.thumbnail));
+          return {
+            content: [
+              { type: "text" as const, text: `thumbnail (${r.result.engine}, ${r.result.size}px): ${r.result.thumbnail}` },
+              { type: "image" as const, data: png.toString("base64"), mimeType: "image/png" },
+            ],
+          };
+        } catch {
+          return errorText(`thumbnail rendered but unreadable at ${r.result.thumbnail}`);
+        }
       }
       return formatRun(r, out ? `output: ${out}` : undefined);
     },

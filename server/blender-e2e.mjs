@@ -192,14 +192,52 @@ const texCube = join(work, "texcube.glb");
   check("convert glb → fbx", !r.isError && r.text.includes("out.fbx"), r.text.slice(0, 300));
 }
 
-// 11. fracture: shards OR the clean install-instructions error (both PASS until
-//     the Cell Fracture extension is installed)
+// 11. fracture: Cell Fracture extension is installed (v0.12) — require REAL shards.
 {
   const r = await call("blender_process", { inputFile: matCube, action: "fracture", shards: 5 });
   const j = parseJson(r.text);
-  const shardsOk = !r.isError && (j?.pieces?.length ?? 0) >= 2;
-  const cleanErr = r.isError && r.text.includes("Cell Fracture");
-  check(`fracture (${shardsOk ? "shards produced" : "clean extension-missing error"})`, shardsOk || cleanErr, r.text.slice(0, 300));
+  check("fracture produces real shards", !r.isError && (j?.pieces?.length ?? 0) >= 2, r.text.slice(0, 300));
+}
+
+// 12. v0.12 lint: flat-color cube reports base_color (sRGB) + has_texture=false
+const flatCube = join(work, "flatcube.glb");
+{
+  const a = await call("blender_run", {
+    script: [
+      "reset_scene()",
+      "bpy.ops.mesh.primitive_cube_add()",
+      "o = mesh_objs()[0]",
+      "m = bpy.data.materials.new('RedMat')",
+      "m.use_nodes = True",
+      "m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.5, 0.0, 0.0, 1.0)",
+      "o.data.materials.append(m)",
+      "export_any(OUT)",
+      "emit({'ok': True})",
+    ].join("\n"),
+    outputFile: flatCube,
+  });
+  const r = await call("blender_process", { inputFile: flatCube, action: "inspect" });
+  const j = parseJson(r.text);
+  const obj = j?.objects?.[0];
+  // linear 0.5 → sRGB ≈ 0.7354
+  const colorOk = Array.isArray(obj?.base_color) && Math.abs(obj.base_color[0] - 0.7354) < 0.02 && obj.base_color[1] < 0.01;
+  check(
+    "inspect reports base_color (sRGB) + has_texture=false",
+    !a.isError && !r.isError && colorOk && obj?.has_texture === false,
+    `base_color=${JSON.stringify(obj?.base_color)} has_texture=${obj?.has_texture} ${r.text.slice(0, 150)}`,
+  );
+}
+
+// 13. v0.12 thumbnail: renders a PNG and returns it as an image content block
+{
+  const raw = await client.callTool({ name: "blender_process", arguments: { inputFile: matCube, action: "thumbnail" } });
+  const img = (raw.content ?? []).find((c) => c.type === "image");
+  const txt = (raw.content ?? []).find((c) => c.type === "text")?.text ?? "";
+  check(
+    "thumbnail returns image block",
+    !raw.isError && img && img.mimeType === "image/png" && (img.data?.length ?? 0) > 4000,
+    `text=${txt.slice(0, 150)} imgBytes=${img?.data?.length ?? 0}`,
+  );
 }
 
 await client.close();
