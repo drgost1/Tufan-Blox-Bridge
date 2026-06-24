@@ -26,3 +26,9 @@ docs/responsive-ui-research.md
 *-research.md
 _private/
 commit-msg.txt
+
+# secrets + runtime artifacts (added during backup)
+.env
+.env.*
+server/meshy-queue-state.json
+server/meshy-queue/
