@@ -27,6 +27,7 @@ import { registerBlenderTools } from "./tools/blender.js";
 import { registerMeshyTools } from "./tools/meshy.js";
 import { registerGenerateTools } from "./tools/generate.js";
 import { registerLintTools } from "./tools/lint.js";
+import { registerSourcemapTools } from "./tools/sourcemap.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -128,6 +129,7 @@ export function createServer(): McpServer {
   registerMeshyTools(server);
   registerGenerateTools(server);
   registerLintTools(server);
+  registerSourcemapTools(server);
 
   return server;
 }
