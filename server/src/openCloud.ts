@@ -337,3 +337,39 @@ export async function uploadFile(opts: {
   }
   return { ok: true, operationId: opId, kind, displayName };
 }
+
+// ---- Shared Open Cloud universe/key helpers (datastore + cloud_luau) ----
+
+/** The Open Cloud API key from env (undefined if unset). Each tool wraps its own help text. */
+export function ocApiKey(): string | undefined {
+  return process.env.TUFAN_OPENCLOUD_KEY?.trim() || undefined;
+}
+
+const universeCache = new Map<number, string>(); // placeId -> universeId (game.GameId is stable)
+
+/** Resolve the UNIVERSE id (game.GameId) for an Open Cloud call. TUFAN_UNIVERSE_ID overrides. */
+export async function resolveUniverse(
+  place?: string | number,
+): Promise<{ universeId?: string; placeId?: number; error?: string }> {
+  const target = resolveTargetPlace(place);
+  const env = process.env.TUFAN_UNIVERSE_ID?.trim();
+  if (env) return { universeId: env, placeId: target.placeId };
+  if (target.error) return { error: `Set TUFAN_UNIVERSE_ID (no Studio connected to auto-detect: ${target.error})` };
+  const cached = universeCache.get(target.placeId!);
+  if (cached) return { universeId: cached, placeId: target.placeId };
+  try {
+    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: "return game.GameId" });
+    const id = Number(r?.result ?? r?.resultJson);
+    if (Number.isFinite(id) && id > 0) {
+      universeCache.set(target.placeId!, String(id));
+      return { universeId: String(id), placeId: target.placeId };
+    }
+    return {
+      error:
+        "This place isn't published (game.GameId is 0) — Open Cloud needs a published universe. " +
+        "Set TUFAN_UNIVERSE_ID if you know it.",
+    };
+  } catch (e) {
+    return { error: `Universe-id auto-detect failed (${(e as Error).message}) — set TUFAN_UNIVERSE_ID.` };
+  }
+}

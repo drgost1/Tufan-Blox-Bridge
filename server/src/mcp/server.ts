@@ -30,6 +30,7 @@ import { registerLintTools } from "./tools/lint.js";
 import { registerSourcemapTools } from "./tools/sourcemap.js";
 import { registerTypecheckTools } from "./tools/typecheck.js";
 import { registerDataStoreTools } from "./tools/datastore.js";
+import { registerCloudLuauTools } from "./tools/cloud_luau.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -57,6 +58,8 @@ const WRITE_TOOLS = new Set([
   // the host (stricter posture than the Studio-sandboxed run_luau). meshy_task and
   // blender_process stay visible — local/status-only, can't mutate place or wallet.
   "generate_asset", "meshy_generate", "blender_run",
+  // cloud_luau runs arbitrary server Luau against the published game (real DataStore/HTTP side effects).
+  "cloud_luau",
   // NOTE: script_source + tag are mixed read/write — NOT hidden here; their write
   // path is guarded at call time via requireWritable() so reads stay available in
   // inspector mode.
@@ -134,6 +137,7 @@ export function createServer(): McpServer {
   registerSourcemapTools(server);
   registerTypecheckTools(server);
   registerDataStoreTools(server);
+  registerCloudLuauTools(server);
 
   return server;
 }

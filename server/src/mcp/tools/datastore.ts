@@ -2,8 +2,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { text, errorText, requireWritable, placeArg } from "../helpers.js";
-import { resolveTargetPlace, dispatchTo } from "../../bridge/sessions.js";
-import { scrub } from "../../openCloud.js";
+import { scrub, ocApiKey, resolveUniverse } from "../../openCloud.js";
 
 // Open Cloud DataStore REST tool — inspect/edit a PUBLISHED game's saved data
 // from the server side (no Studio runtime). Built on the fully-documented v1
@@ -14,8 +13,6 @@ const DS_BASE = "https://apis.roblox.com/datastores/v1";
 const ODS_BASE = "https://apis.roblox.com/ordered-data-stores/v1";
 const MAX_BODY = 100_000; // cap a returned value/list so a 4MB entry can't flood context
 
-const universeCache = new Map<number, string>(); // placeId -> universeId (game.GameId is stable)
-
 const DS_KEY_HELP =
   "datastore needs a Roblox Open Cloud API key WITH DataStore scopes:\n" +
   "  1. https://create.roblox.com/dashboard/credentials → your key (the same one the asset tools use, or a new one)\n" +
@@ -25,36 +22,6 @@ const DS_KEY_HELP =
   "  3. Under Access Permissions, add THIS experience — a key only works for universes on its access list.\n" +
   "  4. Set TUFAN_OPENCLOUD_KEY=<key> in the tufan MCP server env.\n" +
   "universeId is auto-detected from game.GameId; override with TUFAN_UNIVERSE_ID.";
-
-function dsKey(): { key?: string; error?: string } {
-  const k = process.env.TUFAN_OPENCLOUD_KEY?.trim();
-  return k ? { key: k } : { error: DS_KEY_HELP };
-}
-
-// The DataStore API keys on the UNIVERSE id (game.GameId), not the place id.
-async function resolveUniverse(place?: string | number): Promise<{ universeId?: string; error?: string }> {
-  const env = process.env.TUFAN_UNIVERSE_ID?.trim();
-  if (env) return { universeId: env };
-  const target = resolveTargetPlace(place);
-  if (target.error) return { error: `Set TUFAN_UNIVERSE_ID (no Studio connected to auto-detect: ${target.error})` };
-  const cached = universeCache.get(target.placeId!);
-  if (cached) return { universeId: cached };
-  try {
-    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: "return game.GameId" });
-    const id = Number(r?.result ?? r?.resultJson);
-    if (Number.isFinite(id) && id > 0) {
-      universeCache.set(target.placeId!, String(id));
-      return { universeId: String(id) };
-    }
-    return {
-      error:
-        "This place isn't published (game.GameId is 0) — DataStore Open Cloud needs a published universe. " +
-        "Set TUFAN_UNIVERSE_ID if you know it.",
-    };
-  } catch (e) {
-    return { error: `Universe-id auto-detect failed (${(e as Error).message}) — set TUFAN_UNIVERSE_ID.` };
-  }
-}
 
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const p = new URLSearchParams();
@@ -152,9 +119,8 @@ export function registerDataStoreTools(server: McpServer) {
         }
       }
 
-      const k = dsKey();
-      if (k.error) return errorText(k.error);
-      const key = k.key!;
+      const key = ocApiKey();
+      if (!key) return errorText(DS_KEY_HELP);
       const uni = await resolveUniverse(a.place);
       if (uni.error) return errorText(uni.error);
       const u = uni.universeId!;
