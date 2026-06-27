@@ -110,9 +110,12 @@ return function(register)
 				end
 				local group = byClass[cls]
 				if #group > collapseMin then
-					-- collapse the whole run; do not recurse (repetitive leaves)
-					table.insert(out, { depth = depth, text = string.format("%s ×%d", cls, #group), collapsed = true })
-					nodes += 1
+					-- collapse the whole run; do not recurse (repetitive leaves).
+					-- honour the className filter via a representative child (group[1])
+					if (not classFilter) or group[1]:IsA(classFilter) then
+						table.insert(out, { depth = depth, text = string.format("%s ×%d", cls, #group), collapsed = true })
+						nodes += 1
+					end
 				else
 					for _, c in ipairs(group) do
 						if (not classFilter) or c:IsA(classFilter) then

@@ -8,7 +8,7 @@ export function registerPlaytestTools(server: McpServer) {
     {
       description:
         "Control a Studio RUN-mode simulation (RunService). action='start' runs server scripts + " +
-        "physics in the SAME session, so run_luau / playtest_probe / get_playtest_output keep working " +
+        "physics in the SAME session, so run_luau / playtest_probe / get_output_log keep working " +
         "DURING the run (the build→test→inspect→fix loop) — no player character (full Play Solo/F5 has " +
         "no plugin API, start that manually). 'stop' ends it; 'pause' suspends physics + scripts. " +
         "(Replaces start_playtest + stop_playtest + pause_playtest.) Check state with is_running.",

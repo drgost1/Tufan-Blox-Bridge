@@ -62,7 +62,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - 🔐 **Your keys never leave your machine** — `TUFAN_MESHY_KEY` / `TUFAN_OPENCLOUD_KEY` live only in your local MCP server env, are scrubbed from every error message, and are never written to any file, repo, or log by the bridge. Each user brings their own keys.
 - 🧭 **Spatial awareness** — the AI relates what it *sees* to coordinates: `scene_state` grounds a screenshot (every visible object's world **and** on-screen pixel coords via projection), `pick` raycasts a screen point → world hit + surface normal (identify / trace), `place_on` computes and applies a *flush* placement (bounding-box offset, optional align-to-surface + grid snap), `objects_in_region` queries an area.
 - 👥 **Concurrent multi-session** — run several Claude/Cursor sessions on the same Studio at once; one owns the plugin, the rest proxy through it, all commands serialized → no collisions.
-- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides all 38 write tools; mixed tools (`script_source`, `tag`) stay readable with writes blocked. Zero-risk AI exploration.
+- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides the 39 write tools; mixed tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay readable with writes blocked. Zero-risk AI exploration.
 - 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the ~24 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
 - 👁 **Screenshots** — `capture_screenshot` returns a PNG of the Studio viewport so the AI can *see* its work. `get_asset_thumbnail` shows any catalog asset.
 - ▶️ **Playtest control** — `playtest` (start / stop / pause) drives Run mode (server scripts + physics); `playtest_probe` runs structured Luau *inside* the running sim, `playtest_input` drives the character, and `run_luau` + `get_output_log` keep working *during* the run — a closed build→test→inspect loop.
@@ -93,7 +93,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Multi-place** | `list_places` · `pull_place` · `copy_script_across` |
 | **Meta** | `ping` |
 
-In read-only mode (`TUFAN_READONLY=1`) the 41 write tools are hidden (including `generate_asset`, `meshy_generate` — spends money — and `blender_run` — native host execution) and the mixed read/write tools (`script_source`, `tag`) stay visible with their write paths blocked — 40 inspection tools remain. With `TUFAN_TOOLSET=core` only the 24 everyday tools are exposed; both gates compose.
+In read-only mode (`TUFAN_READONLY=1`) the 39 write tools are hidden (including `generate_asset`, `meshy_generate` — spends money — and `blender_run` — native host execution) and the mixed read/write tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay visible with their write paths blocked — 42 inspection tools remain. With `TUFAN_TOOLSET=core` only the 24 everyday tools are exposed; both gates compose.
 
 ## How it works
 

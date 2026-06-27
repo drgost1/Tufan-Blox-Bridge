@@ -275,19 +275,43 @@ end
 function Serialize.encodeDeep(value: any, maxDepth: number?, maxKeys: number?): any
 	local MAX_DEPTH = maxDepth or 6
 	local MAX_KEYS = maxKeys or 200
+	-- Array-like = a NON-EMPTY table whose keys are exactly the integers 1..#t.
+	-- Those must keep numeric keys so JSONEncode emits a real JSON array ([a,b,c]);
+	-- everything else stays a string-keyed object ({"k":v}). Empty tables stay
+	-- objects ({}) to preserve prior behavior. Without this, a Luau array {10,20}
+	-- was serialized as {"1":10,"2":20}, corrupting run_luau/pick/objects_in_region
+	-- and breaking scene_state/place_on (which .join the result).
+	local function isArrayLike(t)
+		local count = 0
+		for k in pairs(t) do
+			count += 1
+			if type(k) ~= "number" or k % 1 ~= 0 or k < 1 then
+				return false
+			end
+		end
+		return count > 0 and count == #t
+	end
 	local function walk(v, depth, seen)
 		if typeof(v) == "table" then
 			if depth >= MAX_DEPTH then return "<table: max depth>" end
 			if seen[v] then return "<cycle>" end
 			seen[v] = true
-			local out, n = {}, 0
-			for k, val in pairs(v) do
-				n += 1
-				if n > MAX_KEYS then
-					out["__truncated"] = true
-					break
+			local out = {}
+			if isArrayLike(v) then
+				-- keep numeric keys so this round-trips as a JSON array
+				for i = 1, math.min(#v, MAX_KEYS) do
+					out[i] = walk(v[i], depth + 1, seen)
 				end
-				out[tostring(k)] = walk(val, depth + 1, seen)
+			else
+				local n = 0
+				for k, val in pairs(v) do
+					n += 1
+					if n > MAX_KEYS then
+						out["__truncated"] = true
+						break
+					end
+					out[tostring(k)] = walk(val, depth + 1, seen)
+				end
 			end
 			seen[v] = nil
 			return out

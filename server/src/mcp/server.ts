@@ -38,7 +38,7 @@ const WRITE_TOOLS = new Set([
   "edit_script_lines", "find_and_replace_in_scripts",
   "set_selection", "run_luau", "insert_asset", "batch",
   "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
-  "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
+  "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover",
   "playtest",
   // cross-place / runtime / mirror writers — also mutate state, so gate them too:
   // copy_script_across upserts a script into a destination place, playtest_probe

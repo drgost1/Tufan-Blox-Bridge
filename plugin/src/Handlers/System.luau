@@ -1,7 +1,7 @@
 --!nocheck
 -- ping/meta + playtest (Run-mode) control. RunService:Run/Stop/Pause are
 -- PluginSecurity, so a plugin CAN drive the Studio simulation. Run mode runs in
--- the SAME DataModel (no forked play session), so run_luau + get_playtest_output
+-- the SAME DataModel (no forked play session), so run_luau + get_output_log
 -- keep working during a run — the automated build→test→inspect→fix loop.
 
 local RunService = game:GetService("RunService")
@@ -33,7 +33,7 @@ return function(register, ctx)
 		return {
 			running = true,
 			mode = "run",
-			note = "Run mode started (server scripts + physics, no player character). run_luau + get_playtest_output work during the run. Full Play Solo (F5) has no plugin API — start that manually.",
+			note = "Run mode started (server scripts + physics, no player character). run_luau + get_output_log work during the run. Full Play Solo (F5) has no plugin API — start that manually.",
 		}
 	end)
 

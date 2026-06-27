@@ -23,8 +23,6 @@ const OP_MAP: Record<string, string> = {
   remove_tag: "removeTag",
   set_script_source: "setScriptSource",
   edit_script_lines: "editScriptLines",
-  insert_script_lines: "insertScriptLines",
-  delete_script_lines: "deleteScriptLines",
   find_and_replace_in_scripts: "findAndReplace",
   set_selection: "setSelection",
   // reads (so you can interleave a read mid-batch)

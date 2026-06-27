@@ -5,6 +5,79 @@ local Workspace = game:GetService("Workspace")
 
 local LOOP_CAP = 25 -- max busy-loop scripts to report
 
+-- A real yield CALL — `wait(...)`, `task.wait(...)` or `someSignal:Wait()`. A
+-- bare substring (a comment, an identifier like `await`) must NOT count.
+local function bodyYields(body)
+	return body:find("%f[%w]wait%s*%(") ~= nil
+		or body:find("task%.wait%s*%(") ~= nil
+		or body:find(":Wait%s*%(") ~= nil
+end
+
+-- Block-open keywords that each need a matching `end`. `while`/`for` open via
+-- their trailing `do`, so we only count `do`/`then`/`function`/`repeat`.
+local BLOCK_OPENERS = { ["do"] = true, ["then"] = true, ["function"] = true, ["repeat"] = true }
+
+-- Return the source slice from `startIdx` up to the `end`/`until` that matches the
+-- block already open at depth 1 — i.e. the body of a `while true do`. Skips
+-- comments and string literals so keywords inside them don't skew the count
+-- (e.g. a `-- the end` comment can't truncate the body early).
+local function matchingBlockBody(src, startIdx)
+	local depth = 1
+	local i = startIdx
+	local n = #src
+	while i <= n do
+		if src:sub(i, i + 1) == "--" then
+			local eqs = src:match("^%-%-%[(=*)%[", i)
+			if eqs then
+				local close = "]" .. eqs .. "]"
+				local e = src:find(close, i + 4, true)
+				i = e and (e + #close) or (n + 1)
+			else
+				local e = src:find("\n", i, true)
+				i = e and (e + 1) or (n + 1)
+			end
+		elseif src:sub(i, i) == '"' or src:sub(i, i) == "'" then
+			local q = src:sub(i, i)
+			local j = i + 1
+			while j <= n do
+				local cc = src:sub(j, j)
+				if cc == "\\" then
+					j = j + 2
+				elseif cc == q then
+					j = j + 1
+					break
+				else
+					j = j + 1
+				end
+			end
+			i = j
+		elseif src:match("^%[=*%[", i) then
+			local eqs = src:match("^%[(=*)%[", i)
+			local close = "]" .. eqs .. "]"
+			local e = src:find(close, i, true)
+			i = e and (e + #close) or (n + 1)
+		else
+			local word = src:match("^[%a_][%w_]*", i)
+			if word then
+				if word == "end" or word == "until" then
+					depth = depth - 1
+					if depth == 0 then
+						return src:sub(startIdx, i - 1)
+					end
+				elseif word == "elseif" then
+					depth = depth - 1 -- cancels the `then` that follows it
+				elseif BLOCK_OPENERS[word] then
+					depth = depth + 1
+				end
+				i = i + #word
+			else
+				i = i + 1
+			end
+		end
+	end
+	return src:sub(startIdx) -- unterminated; treat the remainder as the body
+end
+
 return function(register)
 	register("scanPerf", function()
 		local s = {
@@ -71,15 +144,22 @@ return function(register)
 					local ok, src = pcall(function()
 						return d.Source
 					end)
-					-- a `while true do` with NO yield anywhere in the file is the
-					-- classic frame-killer / hang. Heuristic, labeled as such.
-					if ok and type(src) == "string" and src:find("while%s+true%s+do") then
-						local yields = src:find("wait")
-							or src:find("RunService")
-							or src:find("Heartbeat")
-							or src:find("Stepped")
-						if not yields then
-							table.insert(busyLoops, d:GetFullName())
+					-- a `while true do` whose BODY performs no yielding call is the
+					-- classic frame-killer / hang. We scope the check to the loop body
+					-- (up to its matching `end`) and require a real yield call, so a
+					-- `wait` substring elsewhere in the file can't mask a true hang.
+					if ok and type(src) == "string" then
+						local searchFrom = 1
+						while true do
+							local _, doEnd = src:find("while%s+true%s+do", searchFrom)
+							if not doEnd then
+								break
+							end
+							if not bodyYields(matchingBlockBody(src, doEnd + 1)) then
+								table.insert(busyLoops, d:GetFullName())
+								break
+							end
+							searchFrom = doEnd + 1
 						end
 					end
 				end

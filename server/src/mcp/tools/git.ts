@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { text, errorText } from "../helpers.js";
+import { text, errorText, requireWritable } from "../helpers.js";
 import { resolveTargetPlace, getSessionByPlace } from "../../bridge/sessions.js";
 import * as git from "../../git/git.js";
 
@@ -99,7 +99,14 @@ export function registerGitTools(server: McpServer) {
   server.registerTool(
     "git_branch",
     { description: "List branches, or create+switch when name given.", inputSchema: { name: z.string().optional(), place: placeArg } },
-    async ({ name, place }) => withRoot(place, (root) => git.branch(root, name)),
+    async ({ name, place }) => {
+      // Listing branches is a read; creating/switching (name given) is a write.
+      if (name) {
+        const ro = requireWritable();
+        if (ro) return ro;
+      }
+      return withRoot(place, (root) => git.branch(root, name));
+    },
   );
 
   server.registerTool(
@@ -113,7 +120,14 @@ export function registerGitTools(server: McpServer) {
         place: placeArg,
       },
     },
-    async ({ action, name, url, place }) => withRoot(place, (root) => git.remote(root, action ?? "list", name, url)),
+    async ({ action, name, url, place }) => {
+      // Listing remotes is a read; adding one is a write.
+      if ((action ?? "list") === "add") {
+        const ro = requireWritable();
+        if (ro) return ro;
+      }
+      return withRoot(place, (root) => git.remote(root, action ?? "list", name, url));
+    },
   );
 
   server.registerTool(

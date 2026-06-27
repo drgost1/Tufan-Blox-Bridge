@@ -11,7 +11,7 @@ const WRITE_OPS = new Set([
   "createInstance", "deleteInstance", "cloneInstance", "moveInstance", "renameInstance",
   "massCreate", "massDuplicate", "createTree", "undo", "redo",
   "setProperty", "massSetProperty", "massEdit", "setAttribute", "massSetAttribute",
-  "setScriptSource", "editScriptLines", "insertScriptLines", "deleteScriptLines", "findAndReplace",
+  "setScriptSource", "editScriptLines", "findAndReplace",
   "addTag", "removeTag", "runLuau", "insertAsset", "batch",
   "patchScript", "snapshot", "restore", "deleteSnapshot", "makeResponsive",
 ]);
