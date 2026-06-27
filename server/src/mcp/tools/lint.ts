@@ -1,11 +1,11 @@
 import { z } from "zod";
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { isAbsolute, join, relative, dirname, sep } from "node:path";
+import { join, dirname } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { text, errorText, requireWritable, placeArg } from "../helpers.js";
 import { resolveTargetPlace, getSessionByPlace } from "../../bridge/sessions.js";
 import { resolveStylua, resolveSelene, STYLUA_HELP, SELENE_HELP } from "../../lint/detect.js";
+import { run, failMsg, ms, targetsIn, timeoutArg } from "../../lint/exec.js";
 
 // Host-side Luau quality tools — they run the standard external binaries (StyLua,
 // Selene) over a connected place's on-disk script mirror. No plugin involvement;
@@ -20,22 +20,6 @@ function rootFor(place?: string | number): { root?: string; error?: string } {
   return { root: s.mirrorRoot ?? s.root };
 }
 
-// Resolve user paths against the mirror root and REJECT anything that escapes it
-// (the schema says "relative to the mirror root" and format_scripts WRITES).
-function targetsIn(root: string, paths?: string[]): { targets?: string[]; error?: string } {
-  if (!paths || paths.length === 0) return { targets: [root] };
-  const out: string[] = [];
-  for (const p of paths) {
-    const abs = isAbsolute(p) ? p : join(root, p);
-    const rel = relative(root, abs);
-    if (rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel)) {
-      return { error: `path escapes the script-mirror root, refusing: ${p}` };
-    }
-    out.push(abs);
-  }
-  return { targets: out };
-}
-
 // selene/stylua look for their config in the cwd and ancestors — mirror that so we
 // can warn UP FRONT instead of flooding false undefined-global findings.
 function hasConfig(start: string, names: string[]): boolean {
@@ -48,48 +32,6 @@ function hasConfig(start: string, names: string[]): boolean {
   }
   return false;
 }
-
-type Exec = { code: number; stdout: string; stderr: string; fail?: "enoent" | "timeout" | "buffer" | "other" };
-
-// code -1 = the process never produced a clean exit; `fail` says why.
-function run(exe: string, args: string[], cwd: string, timeoutMs = 120_000): Promise<Exec> {
-  return new Promise((resolve) => {
-    execFile(
-      exe,
-      args,
-      { cwd, timeout: timeoutMs, windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
-      (err: any, stdout, stderr) => {
-        if (err && typeof err.code !== "number") {
-          const codeStr = String(err.code ?? "");
-          const fail: Exec["fail"] =
-            codeStr === "ENOENT"
-              ? "enoent"
-              : err.killed || err.signal
-                ? "timeout"
-                : codeStr === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
-                  ? "buffer"
-                  : "other";
-          resolve({ code: -1, stdout: stdout ?? "", stderr: (stderr ?? "") + (err.message ?? ""), fail });
-        } else {
-          resolve({ code: err ? Number(err.code) : 0, stdout: stdout ?? "", stderr: stderr ?? "" });
-        }
-      },
-    );
-  });
-}
-
-function failMsg(res: Exec, help: string): string {
-  if (res.fail === "timeout") return `timed out — raise timeoutSeconds or narrow with paths.\n${res.stderr.trim()}`;
-  if (res.fail === "buffer") return `output too large (buffer exceeded) — narrow with paths.\n${res.stderr.trim()}`;
-  if (res.fail === "enoent") return help;
-  return `failed to run: ${res.stderr.trim()}\n${help}`;
-}
-
-const timeoutArg = z
-  .number()
-  .optional()
-  .describe("max seconds for the run (default 120, max 600)");
-const ms = (s?: number) => Math.min(Math.max(s ?? 120, 1), 600) * 1000;
 
 export function registerLintTools(server: McpServer) {
   // Mixed read/write: `check:true` is a read (visible in read-only mode); the

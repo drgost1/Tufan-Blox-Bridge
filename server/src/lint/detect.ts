@@ -53,5 +53,11 @@ function makeResolver(envVar: string, binName: string, help: string) {
   return resolve;
 }
 
+export const LUAU_LSP_HELP =
+  "typecheck needs luau-lsp installed (the Luau language server / analyzer):\n" +
+  "  github.com/JohnnyMorganz/luau-lsp/releases  ·  `rokit add JohnnyMorganz/luau-lsp`\n" +
+  "Auto-detected on PATH; set TUFAN_LUAU_LSP_PATH if it lives elsewhere.";
+
 export const resolveStylua = makeResolver("TUFAN_STYLUA_PATH", "stylua", STYLUA_HELP);
 export const resolveSelene = makeResolver("TUFAN_SELENE_PATH", "selene", SELENE_HELP);
+export const resolveLuauLsp = makeResolver("TUFAN_LUAU_LSP_PATH", "luau-lsp", LUAU_LSP_HELP);
