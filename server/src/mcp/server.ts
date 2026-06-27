@@ -29,6 +29,7 @@ import { registerGenerateTools } from "./tools/generate.js";
 import { registerLintTools } from "./tools/lint.js";
 import { registerSourcemapTools } from "./tools/sourcemap.js";
 import { registerTypecheckTools } from "./tools/typecheck.js";
+import { registerDataStoreTools } from "./tools/datastore.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -132,6 +133,7 @@ export function createServer(): McpServer {
   registerLintTools(server);
   registerSourcemapTools(server);
   registerTypecheckTools(server);
+  registerDataStoreTools(server);
 
   return server;
 }
