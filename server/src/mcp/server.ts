@@ -26,6 +26,11 @@ import { registerSpatialTools } from "./tools/spatial.js";
 import { registerBlenderTools } from "./tools/blender.js";
 import { registerMeshyTools } from "./tools/meshy.js";
 import { registerGenerateTools } from "./tools/generate.js";
+import { registerLintTools } from "./tools/lint.js";
+import { registerSourcemapTools } from "./tools/sourcemap.js";
+import { registerTypecheckTools } from "./tools/typecheck.js";
+import { registerDataStoreTools } from "./tools/datastore.js";
+import { registerCloudLuauTools } from "./tools/cloud_luau.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -38,7 +43,7 @@ const WRITE_TOOLS = new Set([
   "edit_script_lines", "find_and_replace_in_scripts",
   "set_selection", "run_luau", "insert_asset", "batch",
   "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
-  "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover", "git_remote", "git_branch",
+  "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover",
   "playtest",
   // cross-place / runtime / mirror writers — also mutate state, so gate them too:
   // copy_script_across upserts a script into a destination place, playtest_probe
@@ -53,6 +58,8 @@ const WRITE_TOOLS = new Set([
   // the host (stricter posture than the Studio-sandboxed run_luau). meshy_task and
   // blender_process stay visible — local/status-only, can't mutate place or wallet.
   "generate_asset", "meshy_generate", "blender_run",
+  // cloud_luau runs arbitrary server Luau against the published game (real DataStore/HTTP side effects).
+  "cloud_luau",
   // NOTE: script_source + tag are mixed read/write — NOT hidden here; their write
   // path is guarded at call time via requireWritable() so reads stay available in
   // inspector mode.
@@ -72,7 +79,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.12.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.13.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
@@ -126,6 +133,11 @@ export function createServer(): McpServer {
   registerBlenderTools(server);
   registerMeshyTools(server);
   registerGenerateTools(server);
+  registerLintTools(server);
+  registerSourcemapTools(server);
+  registerTypecheckTools(server);
+  registerDataStoreTools(server);
+  registerCloudLuauTools(server);
 
   return server;
 }

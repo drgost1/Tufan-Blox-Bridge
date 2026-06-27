@@ -50,16 +50,6 @@ return function(register)
 		return { matches = matches }
 	end)
 
-	register("getScriptTree", function()
-		local scripts = {}
-		for _, d in ipairs(game:GetDescendants()) do
-			if d:IsA("LuaSourceContainer") then
-				table.insert(scripts, { className = d.ClassName, path = Serialize.uniquePath(d) })
-			end
-		end
-		return { scripts = scripts }
-	end)
-
 	-- Full pull: every script's path + class + source in one response, for the
 	-- auto-mirror-on-connect flow. Skips plugin code.
 	register("pullAll", function()

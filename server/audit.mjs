@@ -45,7 +45,6 @@ const tests = [
   ["list_places", {}],
   ["get_services", {}],
   ["get_descendants", { path: "ReplicatedStorage", maxDepth: 1 }],
-  ["get_script_tree", {}],
   ["run_luau", { code: "return 2 + 2" }],
   ["run_luau", { code: 'print("hello from audit"); return game.PlaceId' }],
   ["get_output_log", { maxEntries: 5 }],

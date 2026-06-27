@@ -2,7 +2,7 @@
 -- Output capture. We keep a CONTINUOUS ring buffer fed by LogService.MessageOut
 -- from plugin boot, instead of only reading GetLogHistory on demand. Why:
 --   * it survives ClearOutput (a common backdoor trick + normal Studio behaviour)
---   * it captures playtest output as it streams (so get_playtest_output returns
+--   * it captures playtest output as it streams (so get_output_log returns
 --     instantly from the buffer rather than risking a stalled on-demand read)
 local LogService = game:GetService("LogService")
 local HttpService = game:GetService("HttpService")
@@ -91,11 +91,5 @@ return function(register, ctx)
 
 	register("getOutputLog", function(args)
 		return { lines = collect(args.maxEntries or 100, args.severity) }
-	end)
-
-	register("getPlaytestOutput", function(args)
-		-- Same buffer; during a playtest it includes the streamed play output.
-		-- Roblox does not separate edit vs play output cleanly.
-		return { lines = collect(args.maxEntries or 100, nil) }
 	end)
 end

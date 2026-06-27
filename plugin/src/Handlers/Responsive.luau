@@ -17,6 +17,7 @@ local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
 
 local MIN_TAP = 44
+local EPS = 1e-3  -- zero-size guard: parent AbsoluteSize below this counts as zero
 
 local function u2off2scale(u, abs)
 	return UDim2.new(
@@ -115,15 +116,21 @@ cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit); fit()
 		for _, g in ipairs(nodes) do
 			local pAbs = (g.Parent and g.Parent:IsA("GuiBase2d")) and g.Parent.AbsoluteSize or nil
 
-			if g:IsA("GuiObject") and pAbs then
+			if g:IsA("GuiObject") and pAbs and toScale and (pAbs.X < EPS or pAbs.Y < EPS) then
+				-- zero-size parent (e.g. the UIScale-wrapper ScaledRoot/*Anchor pattern):
+				-- Offset→Scale would divide by ~0 and collapse this element to Scale 0.
+				-- Skip it entirely instead of nuking it. Same in dryRun + apply.
+				note(Serialize.uniquePath(g), "skipped", "-", "zero-size parent")
+			elseif g:IsA("GuiObject") and pAbs then
 				local runtime = isRuntimeDriven(g, exclude)
 				if not runtime then
 					-- Position + Size
+					local oldPos, oldSize = g.Position, g.Size
 					local newPos = toScale and u2off2scale(g.Position, pAbs) or u2scale2off(g.Position, pAbs)
 					local newSize = toScale and u2off2scale(g.Size, pAbs) or u2scale2off(g.Size, pAbs)
 					if not dryRun then g.Position = newPos; g.Size = newSize end
-					note(Serialize.uniquePath(g), "Position", tostring(g.Position), tostring(newPos))
-					note(Serialize.uniquePath(g), "Size", tostring(g.Size), tostring(newSize))
+					note(Serialize.uniquePath(g), "Position", tostring(oldPos), tostring(newPos))
+					note(Serialize.uniquePath(g), "Size", tostring(oldSize), tostring(newSize))
 					-- aspect lock (opt-in) — only if absent + not under a layout parent
 					if toScale and doAspect and not g:FindFirstChildOfClass("UIAspectRatioConstraint")
 						and not (g.Parent:FindFirstChildOfClass("UIListLayout") or g.Parent:FindFirstChildOfClass("UIGridLayout"))
