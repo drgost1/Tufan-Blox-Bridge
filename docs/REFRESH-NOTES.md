@@ -2,7 +2,7 @@
 
 An ecosystem scan (other open-source Roblox Studio MCP/AI plugins) + a repo audit, turned into bug fixes, dead-code removal, and **6 new server-side tools**. Tool surface **81 → 87**.
 
-Everything here is on the branch, **compile-verified (`tsc --noEmit`) and code-reviewed**, but **not merged / not published to npm / not tagged** — the plugin changes need a live Studio test first (see _Needs your verification_).
+Everything here is **compile-verified, code-reviewed, and the headline `encodeDeep` fix is VERIFIED LIVE in Studio** (`run_luau` arrays + `scene_state` both confirmed working). Released as **server v0.13.0 / plugin v0.9.0** — merged to `main` + GitHub release. npm publish stays paused per Nafis.
 
 ---
 
@@ -39,11 +39,11 @@ Dead plugin handlers (`getPlaytestOutput`, `getScriptTree`), broken `batch` alia
 2. **Live-test the plugin branch:** rebuild the `.rbxm` (`scripts/build-plugin.ps1 -Install`), reload in Studio, confirm `scene_state` / `place_on` work and `run_luau` returns arrays as arrays. → then tag a release.
 3. (Optional) install `stylua` / `selene` / `luau-lsp` to exercise the verify trio; add DataStore + luau-execution scopes to the Open Cloud key for `datastore` / `cloud_luau`.
 
-## 5. Held for your decision (not done — breaking / uncertain)
+## 5. Held items — RESOLVED (v0.13.0)
 
-- **Remove `get_descendants`** — overlaps `get_tree` but it's a published tool and *not* a strict subset → breaking, needs a major version bump.
-- **`set_property` accepting a JSON-stringified value** — touches the decode path; per-tool vs global?
-- **`make_responsive` auto-exclude of UIScale-wrapper subtrees** — bigger behavior change; opt-in?
+- **`get_descendants`** — KEPT. Functionally distinct from `get_tree` (which collapses same-class runs into `ClassName ×N`); removing a useful published tool for marginal tidiness isn't worth a breaking change.
+- **`set_property` JSON-stringified value** — DONE (narrow-safe). `set_property` / `mass_edit` / `set_attribute` / `mass_set_attribute` / `search_by_property` now unwrap a string value ONLY when it parses to an object with a recognized tagged-type key (`Vector3`/`Color3`/…); plain strings pass through untouched, so literal string properties can't be corrupted.
+- **`make_responsive` auto-exclude** — SKIPPED. The shipped zero-size SKIP is the safe fix; auto-excluding whole UIScale-wrapper subtrees is a speculative behavior change.
 
 ## 6. Deliberately deferred (need live test or reachability validation)
 
