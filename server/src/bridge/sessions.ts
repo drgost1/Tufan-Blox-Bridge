@@ -191,6 +191,11 @@ export function onReady(info: ReadyInfo): Session {
   session.project = project;
   session.lastSeen = Date.now();
   session.connected = true;
+  // Symmetric with the heartbeat reconnect branch: clear disconnectedAt on
+  // every re-ready so a session that dropped and came back via a fresh
+  // onReady (not just a heartbeat poll) isn't left with a stale timestamp
+  // that could make the reaper misjudge its disconnected duration.
+  session.disconnectedAt = undefined;
 
   sessionsById.set(info.sessionId, session);
   placeToSession.set(info.placeId, info.sessionId);
