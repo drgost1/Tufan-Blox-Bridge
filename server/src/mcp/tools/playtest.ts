@@ -37,7 +37,8 @@ export function registerPlaytestTools(server: McpServer) {
       description:
         "Run Luau INSIDE a running simulation and get STRUCTURED data back (tables → JSON) — the " +
         "AI's eyes during a test: read player count, positions, values, whatever. Works in Run mode " +
-        "(start_playtest). Errors if nothing is running. Omit code for a default player snapshot.",
+        "(playtest action:'start'). Errors if nothing is running. Omit code for a default player snapshot. " +
+        "For EDIT-mode code (nothing running), use run_luau instead; for code against the PUBLISHED game, use cloud_luau instead.",
       inputSchema: {
         code: z.string().optional().describe("Luau to run in the sim; return a table for structured output"),
         place: placeArg,

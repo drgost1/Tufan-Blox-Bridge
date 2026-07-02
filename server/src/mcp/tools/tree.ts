@@ -47,7 +47,8 @@ export function registerTreeTools(server: McpServer) {
     "search_objects",
     {
       description:
-        "Find instances by name and/or className under rootPath. matchMode controls name matching: 'substring' (default), 'exact', 'wholeWord', or 'regex'. Use 'exact'/'wholeWord' to cut the noise that plain substring search produces.",
+        "Find instances by name and/or className under rootPath. matchMode controls name matching: 'substring' (default), 'exact', 'wholeWord', or 'regex'. Use 'exact'/'wholeWord' to cut the noise that plain substring search produces. " +
+        "For a property-VALUE search (e.g. every part with Material=Wood) use search_by_property instead; for the Roblox marketplace use search_assets.",
       inputSchema: {
         rootPath: z.string().optional(),
         name: z.string().optional(),

@@ -63,7 +63,7 @@ export function registerGitTools(server: McpServer) {
   server.registerTool(
     "git_restore",
     {
-      description: "Restore a file. Without source: discard working changes (restore to HEAD). With source (a commit/ref): recover that OLDER version of the file — use this to get back an edit you lost.",
+      description: "Restore a git-tracked file. Without source: discard working changes (restore to HEAD). With source (a commit/ref): recover that OLDER version of the file — use this to get back an edit you lost. (For restoring a non-git `snapshot` checkpoint of a live instance subtree, use restore instead.)",
       inputSchema: { path: z.string(), source: z.string().optional().describe("commit/ref to restore the file FROM (e.g. a hash or HEAD~3)"), place: placeArg },
     },
     async ({ path, source, place }) => withRoot(place, (root) => git.restore(root, path, source)),

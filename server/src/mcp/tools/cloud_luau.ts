@@ -80,7 +80,7 @@ export function registerCloudLuauTools(server: McpServer) {
         "could even AssetService:SavePlaceAsync) — runtime/in-memory state is throwaway, but cloud writes are " +
         "real. Long scripts: if still running when the wait elapses, re-call with `resume` = the returned " +
         "task path. Needs an Open Cloud key with the luau-execution scope (TUFAN_OPENCLOUD_KEY) + a published " +
-        "universe.",
+        "universe. For Studio EDIT-mode code use run_luau instead; for code inside a live Run-mode/Play-Solo test use playtest_probe instead.",
       inputSchema: {
         script: z.string().optional().describe("the Luau to run (end with `return ...` for values back). Omit when resuming."),
         timeoutSeconds: z.number().optional().describe("max script runtime on the server (default/max 300)"),

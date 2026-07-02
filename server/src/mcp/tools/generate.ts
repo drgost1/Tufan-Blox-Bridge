@@ -76,7 +76,9 @@ export function registerGenerateTools(server: McpServer) {
         "CREDITS (~30 ≈ $0.60 per asset) — first call returns a cost estimate and asks for confirm:true " +
         "unless TUFAN_MESHY_AUTOCONFIRM=1. Generation takes minutes; on budget exhaustion you get a " +
         "meshyTaskId to resume with (no re-spend). Position the inserted model afterwards with place_on. " +
-        "Needs TUFAN_MESHY_KEY + TUFAN_OPENCLOUD_KEY (Blender optional but recommended).",
+        "Needs TUFAN_MESHY_KEY + TUFAN_OPENCLOUD_KEY (Blender optional but recommended). For an EXISTING " +
+        "marketplace asset by id use insert_asset instead; for a local file you already have use import_file " +
+        "instead; to generate WITHOUT auto-inserting into the place (just the raw model), use meshy_generate instead.",
       inputSchema: {
         prompt: z.string().optional().describe("Text description of the asset (mutually exclusive with image*)"),
         imageUrl: z.string().optional().describe("Public image URL for image-to-3D"),

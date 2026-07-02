@@ -26,7 +26,8 @@ export function registerSnapshotTools(server: McpServer) {
     {
       description:
         "Restore a snapshot: destroys whatever's currently at its original location and re-clones " +
-        "the checkpoint back exactly. One undo entry. Pass parentPath to restore somewhere else.",
+        "the checkpoint back exactly. One undo entry. Pass parentPath to restore somewhere else. " +
+        "(This restores a `snapshot` checkpoint of a live instance subtree — for git-tracked file history, use git_restore/git_recover instead.)",
       inputSchema: {
         name: z.string(),
         parentPath: z.string().optional().describe("override the original parent"),

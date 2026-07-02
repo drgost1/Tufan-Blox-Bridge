@@ -30,7 +30,8 @@ export function registerImportTools(server: McpServer) {
         ".fbx/.glb first. Max 20 MB. Audio uploads are quota-limited (10/month, 100/month if ID-verified) " +
         "and queue for moderation — they often outlive waitSeconds; when that happens the call returns an " +
         "operationId, and re-calling with { operationId } resumes WITHOUT re-uploading or burning quota. " +
-        "Models typically finish in seconds.",
+        "Models typically finish in seconds. For an EXISTING marketplace asset by id, use insert_asset instead; " +
+        "to AI-generate a new mesh from a prompt/image, use generate_asset instead.",
       inputSchema: {
         filePath: z.string().optional().describe("Absolute path of the local file to upload"),
         name: z.string().optional().describe("Display name on Roblox (default: file name)"),

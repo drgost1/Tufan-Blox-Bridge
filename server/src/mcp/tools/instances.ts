@@ -73,14 +73,11 @@ export function registerInstanceTools(server: McpServer) {
   );
 
   server.registerTool(
-    "undo",
-    { description: "Undo the last change in Studio (ChangeHistoryService).", inputSchema: { place: placeArg } },
-    async ({ place }) => runStudio("undo", {}, () => "Undone", place),
-  );
-
-  server.registerTool(
-    "redo",
-    { description: "Redo the last undone change in Studio.", inputSchema: { place: placeArg } },
-    async ({ place }) => runStudio("redo", {}, () => "Redone", place),
+    "history",
+    {
+      description: "Undo or redo the last change in Studio (ChangeHistoryService). (Replaces undo + redo.)",
+      inputSchema: { direction: z.enum(["undo", "redo"]), place: placeArg },
+    },
+    async ({ direction, place }) => runStudio(direction, {}, () => (direction === "undo" ? "Undone" : "Redone"), place),
   );
 }

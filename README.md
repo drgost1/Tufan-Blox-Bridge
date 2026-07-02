@@ -1,6 +1,6 @@
 # Tufan-Blox-Bridge
 
-**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 81 tools, two-way file sync, opt-in per-place git, a backdoor scanner, AI 3D-asset generation (Meshy + headless Blender + Open Cloud), local-file import, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
+**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 86 tools, two-way file sync, opt-in per-place git, a backdoor scanner, AI 3D-asset generation (Meshy + headless Blender + Open Cloud), local-file import, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
 
 > Unlike Rojo (file sync only) or other MCP plugins (AI control only), Tufan-Blox-Bridge does **AI control + two-way sync + git + security + asset generation + safe-mode** in a single tool — across one or more open places at once.
 
@@ -42,14 +42,14 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 81 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 86 tools.
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes commands and mirrors your scripts.
 
 The AI calls a tool → the server queues a command → the plugin's long-poll picks it up → executes in Studio → returns the result. The server also handles file sync and git on your machine.
 
 ## Features
 
-- 🛠 **Full Studio control** — 81 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
+- 🛠 **Full Studio control** — 86 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
 - 🔄 **Two-way file sync** — open a place and its script tree mirrors to disk; edit a file → Studio updates, edit in Studio → the file updates.
 - 🌿 **Opt-in per-place git** — off by default (no `.git`, no headache). Turn it on in the widget and each place becomes its own repo with Commit / Push / Backup / Setup-GitHub buttons + auto-commit/push toggles. Your choice persists across restarts.
 - 🛡 **Backdoor scanner** — `scan_backdoors` finds require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, and hidden binary payloads; `list_studio_plugins` surfaces the remote-code-plugin vector.
@@ -76,7 +76,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | Group | Tools |
 |---|---|
 | **Scripts** | `script_source` · `grep_scripts` · `edit_script_lines` · `patch_script` · `find_and_replace_in_scripts` · `find_duplicates` |
-| **Instances** | `create_instance` · `delete_instance` · `clone_instance` · `move_instance` · `rename_instance` · `create_tree` · `undo` · `redo` |
+| **Instances** | `create_instance` · `delete_instance` · `clone_instance` · `move_instance` · `rename_instance` · `create_tree` · `history` |
 | **Properties** | `get_properties` · `set_property` · `mass_edit` · `search_by_property` · `get_attributes` · `set_attribute` · `mass_set_attribute` |
 | **Inspection** | `get_tree` · `get_descendants` · `search_objects` · `get_services` · `describe` |
 | **Tags** | `tag` · `get_tagged` |

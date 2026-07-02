@@ -38,7 +38,7 @@ import { log } from "../util/log.js";
 // can explore a place with zero risk of mutating it — like boshyxd's Inspector.
 const WRITE_TOOLS = new Set([
   "create_instance", "delete_instance", "clone_instance", "move_instance", "rename_instance",
-  "create_tree", "undo", "redo",
+  "create_tree", "history",
   "set_property", "mass_edit", "set_attribute", "mass_set_attribute",
   "edit_script_lines", "find_and_replace_in_scripts",
   "set_selection", "run_luau", "insert_asset", "batch",

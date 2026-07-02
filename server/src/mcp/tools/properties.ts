@@ -80,7 +80,7 @@ export function registerPropertyTools(server: McpServer) {
   server.registerTool(
     "search_by_property",
     {
-      description: "Find instances under rootPath whose property equals value.",
+      description: "Find instances under rootPath whose property equals value. For name/class search use search_objects instead; for the Roblox marketplace use search_assets.",
       inputSchema: { rootPath: z.string().optional(), name: z.string(), value: z.any(), place: placeArg },
     },
     async ({ rootPath, name, value, place }) =>

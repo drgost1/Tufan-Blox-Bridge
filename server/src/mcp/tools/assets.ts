@@ -25,7 +25,7 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_assets",
     {
-      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name, and flags assets that contain scripts (⚠ possible backdoor vector). Server-side.",
+      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name, and flags assets that contain scripts (⚠ possible backdoor vector). Server-side. For instances already IN this place, use search_objects or search_by_property instead; for this place's own custom MaterialVariants, use search_materials.",
       inputSchema: {
         keyword: z.string(),
         assetType: z.enum(["Model", "Decal", "Audio", "Mesh", "Plugin"]).optional().describe("default Model"),
@@ -118,7 +118,7 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_materials",
     {
-      description: "List custom MaterialVariants defined in this place's MaterialService (name + base material), optionally filtered by name.",
+      description: "List custom MaterialVariants defined in this place's MaterialService (name + base material), optionally filtered by name. For marketplace assets use search_assets instead; for other existing instances use search_objects/search_by_property.",
       inputSchema: { name: z.string().optional().describe("filter by name substring"), place: placeArg },
     },
     async ({ name, place }) =>
@@ -134,7 +134,7 @@ export function registerAssetTools(server: McpServer) {
     "insert_asset",
     {
       description:
-        "Insert a marketplace asset by id under parentPath (default Workspace). NOTE: Roblox's LoadAsset only authorizes assets the logged-in user OWNS (or Roblox-made ones) — most third-party free models will fail unless you first take them (Toolbox → Add to Inventory). Tip: run scan_backdoors after inserting free models.",
+        "Insert a marketplace asset by id under parentPath (default Workspace). NOTE: Roblox's LoadAsset only authorizes assets the logged-in user OWNS (or Roblox-made ones) — most third-party free models will fail unless you first take them (Toolbox → Add to Inventory). Tip: run scan_backdoors after inserting free models. For a LOCAL file you already have, use import_file instead; to AI-generate a new mesh, use generate_asset instead.",
       inputSchema: { assetId: z.number(), parentPath: z.string().optional(), place: placeArg },
     },
     async ({ assetId, parentPath, place }) =>
