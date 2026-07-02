@@ -47,6 +47,7 @@ export interface Session {
   pending: Map<string, Pending>;
   lastSeen: number;
   connected: boolean;
+  disconnectedAt?: number; // set when connected flips false; cleared on reconnect
 }
 
 const sessionsById = new Map<string, Session>();
@@ -128,7 +129,38 @@ export function setOnSessionConnect(fn: OnSessionConnect) {
   onConnect = fn;
 }
 
+/** Reject every in-flight command and release every parked long-poll waiter on
+ *  a session, then drop it from the registry. Used when a reconnect supersedes
+ *  it (fresh sessionId for the same place) or when the reaper collects a
+ *  disconnected zombie. Never called on a session with pending work from the
+ *  reaper path (callers check `pending.size === 0` first there); the eviction
+ *  path here rejects deliberately since the plugin that owned those commands
+ *  is gone. */
+function evictSession(sessionId: string, reason: string) {
+  const old = sessionsById.get(sessionId);
+  if (!old) return;
+  for (const p of old.pending.values()) {
+    clearTimeout(p.timer);
+    p.reject(new Error(reason));
+  }
+  old.pending.clear();
+  for (const waiter of old.waiters) waiter(null);
+  old.waiters = [];
+  sessionsById.delete(sessionId);
+  log(`session ${sessionId.slice(0, 8)} evicted: ${reason}`);
+}
+
 export function onReady(info: ReadyInfo): Session {
+  // A fresh sessionId for a placeId that's already mapped to a DIFFERENT
+  // sessionId means the plugin reconnected (Studio reopened, script re-run)
+  // without the old session ever being cleaned up. Evict the superseded
+  // session before registering the new one, or it zombies in sessionsById
+  // forever (duplicate places, false "multiple places connected" errors).
+  const priorSessionId = placeToSession.get(info.placeId);
+  if (priorSessionId && priorSessionId !== info.sessionId) {
+    evictSession(priorSessionId, `superseded by reconnect (place ${info.placeId})`);
+  }
+
   const entry = resolveProjectForPlace(info.placeId, info.placeName, info.gameId);
   let project: Project | null = null;
   try {
@@ -191,10 +223,15 @@ export function listSessions(): Session[] {
   return [...sessionsById.values()];
 }
 
-/** Detect connect/disconnect transitions (no poll within staleMs = disconnected). */
+/** Detect connect/disconnect transitions (no poll within staleMs = disconnected).
+ *  Also reaps zombie sessions: once a session has been disconnected AND idle
+ *  (no pending work) for longer than reapMs, it's dropped from the registry
+ *  entirely so listSessions()/allPlaces() stop reporting it. A session with
+ *  pending work is never reaped, no matter how long it's been disconnected. */
 export function startHeartbeat(
   hooks: { onDisconnect?: (s: Session) => void; onReconnect?: (s: Session) => void },
   staleMs = 15_000,
+  reapMs = 60_000,
 ) {
   setInterval(() => {
     const now = Date.now();
@@ -206,11 +243,20 @@ export function startHeartbeat(
       const alive = now - s.lastSeen < staleMs || s.pending.size > 0;
       if (s.connected && !alive) {
         s.connected = false;
+        s.disconnectedAt = now;
         hooks.onDisconnect?.(s);
       } else if (!s.connected && alive) {
         s.connected = true;
+        s.disconnectedAt = undefined;
         hooks.onReconnect?.(s);
       }
+    }
+    for (const s of sessionsById.values()) {
+      if (s.connected || s.pending.size > 0 || s.disconnectedAt === undefined) continue;
+      if (now - s.disconnectedAt < reapMs) continue;
+      sessionsById.delete(s.sessionId);
+      if (placeToSession.get(s.placeId) === s.sessionId) placeToSession.delete(s.placeId);
+      log(`session ${s.sessionId.slice(0, 8)} reaped: disconnected ${Math.round((now - s.disconnectedAt) / 1000)}s, place ${s.placeId}`);
     }
   }, 5_000);
 }
