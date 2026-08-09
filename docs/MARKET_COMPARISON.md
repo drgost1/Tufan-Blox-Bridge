@@ -24,14 +24,15 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ 81 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 83 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
 | Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
 | Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
 | Read-only / safe mode | ✅ (`TUFAN_READONLY=1`) | — | — | — | ✅ (Inspector, 31) | — |
 | Script get/set + grep | ✅ | ✅ | partial | ✅ | ✅ | ✅ |
 | Project-wide find/replace | ✅ | — | — | ✅ (Pro bulk) | — | partial |
 | Run Luau (edit mode) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Playtest + log capture | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Playtest control | — (defers to Roblox built-in) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Log capture during play | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Two-way file sync** | ✅ | — | — | Pro only | — | — |
 | One-way sync (Studio→disk) | ✅ | — | — | ✅ free | — | — |
 | **Per-place git** (commit/diff/restore) | ✅ | — | — | — | — | — |

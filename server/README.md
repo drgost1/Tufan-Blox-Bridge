@@ -2,7 +2,7 @@
 
 MCP server for AI-driven Roblox Studio development, by Tufan Studio.
 
-Connect Claude Code / Cursor and get 76 tools to drive Studio: read/write scripts, create & edit instances, get/set properties (full round-trip incl. particle curves and gradients), inspect the tree, run Luau, batch ops, subtree snapshots, playtest control, perf/responsive/security audits, read logs, insert assets — plus two-way file sync (files↔Studio for code) and per-place git history (commit/log/diff/restore/branch).
+Connect Claude Code / Cursor and get 83 tools to drive Studio: read/write scripts, create & edit instances, get/set properties (full round-trip incl. particle curves and gradients), inspect the tree, run Luau, batch ops, subtree snapshots, perf/responsive/security audits, read logs, insert assets — plus two-way file sync (files↔Studio for code) and per-place git history (commit/log/diff/restore/branch).
 
 Pairs with the **Tufan-Blox-Bridge Studio plugin**, which executes the commands inside Studio. The server speaks MCP over stdio to your AI client and runs an HTTP bridge on `127.0.0.1:58741` that the plugin polls.
 

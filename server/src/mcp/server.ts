@@ -8,7 +8,6 @@ import { registerLuauTools } from "./tools/luau.js";
 import { registerLogTools } from "./tools/logs.js";
 import { registerAssetTools } from "./tools/assets.js";
 import { registerCaptureTools } from "./tools/capture.js";
-import { registerPlaytestTools } from "./tools/playtest.js";
 import { registerGitTools } from "./tools/git.js";
 import { registerPlaceTools } from "./tools/places.js";
 import { registerSelectionTools } from "./tools/selection.js";
@@ -42,13 +41,12 @@ const WRITE_TOOLS = new Set([
   "set_property", "mass_edit", "set_attribute", "mass_set_attribute",
   "edit_script_lines", "find_and_replace_in_scripts",
   "set_selection", "run_luau", "insert_asset", "batch",
-  "patch_script", "snapshot", "restore", "delete_snapshot", "playtest_input", "make_responsive",
+  "patch_script", "snapshot", "restore", "delete_snapshot", "make_responsive",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover",
-  "playtest",
-  // cross-place / runtime / mirror writers — also mutate state, so gate them too:
-  // copy_script_across upserts a script into a destination place, playtest_probe
-  // runs arbitrary Luau in a live sim, pull_place overwrites the on-disk mirror.
-  "copy_script_across", "playtest_probe", "pull_place",
+  // cross-place / mirror writers — also mutate state, so gate them too:
+  // copy_script_across upserts a script into a destination place, pull_place
+  // overwrites the on-disk mirror.
+  "copy_script_across", "pull_place",
   // import_file uploads to the user's Roblox account AND inserts into the place.
   "import_file",
   // place_on raycasts to a surface and moves the object flush onto it.
@@ -79,7 +77,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.13.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.14.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
@@ -107,6 +105,22 @@ export function createServer(): McpServer {
     async ({ place }) => runStudio("ping", {}, (r) => `pong — place="${r?.placeName ?? "?"}" (${r?.placeId ?? "?"}) session=${r?.sessionId ?? "?"}`, place),
   );
 
+  // Edit-vs-run state. Read-only guard for the write tools (a mutation landing
+  // mid-simulation behaves differently), NOT playtest control — starting,
+  // stopping and driving a play session is Roblox's official Studio MCP now.
+  server.registerTool(
+    "is_running",
+    {
+      description:
+        "Whether a simulation is running in the target Studio, and whether it's Run mode. " +
+        "Read-only state check — use it to confirm you're in edit mode before mutating. " +
+        "To START/STOP a play session or send input, use Roblox's official Studio MCP.",
+      inputSchema: { place: placeArg },
+    },
+    async ({ place }) =>
+      runStudio("isRunning", {}, (r) => (r?.running ? `running${r.runMode ? " (run mode)" : ""}` : "not running (edit mode)"), place),
+  );
+
   registerPlaceTools(server);
   registerScriptTools(server);
   registerInstanceTools(server);
@@ -116,7 +130,6 @@ export function createServer(): McpServer {
   registerLogTools(server);
   registerAssetTools(server);
   registerCaptureTools(server);
-  registerPlaytestTools(server);
   registerGitTools(server);
   registerSelectionTools(server);
   registerTagTools(server);

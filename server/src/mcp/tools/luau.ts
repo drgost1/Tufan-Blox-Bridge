@@ -8,7 +8,7 @@ export function registerLuauTools(server: McpServer) {
     {
       description:
         "Execute Luau in the Studio plugin context (EDIT mode — runs against the edit DataModel, not a running playtest's server/client). Captures the return value and printed output. Full plugin API access. " +
-        "For code that must run INSIDE a live Run-mode/Play-Solo simulation, use playtest_probe instead; for code that must run against the PUBLISHED game on Roblox's servers, use cloud_luau instead.",
+        "For code that must run INSIDE a live play session, use Roblox's official Studio MCP (execute_luau); for code that must run against the PUBLISHED game on Roblox's servers, use cloud_luau instead.",
       inputSchema: { code: z.string().describe("Luau source to run"), place: placeArg },
     },
     async ({ code, place }) =>

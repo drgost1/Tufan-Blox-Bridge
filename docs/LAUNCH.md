@@ -21,7 +21,7 @@ That scanner turned out to be one piece of something bigger. **Tufan-Blox-Bridge
 Run it on any place you've imported free models into. It ranks findings high→low.
 
 ### 🤖 Full AI control of Studio (MCP)
-86 tools your AI can call: read/write scripts + **line-level edits** + atomic **patch_script**, create/clone instances + **create_tree** (whole nested subtree in one call) + **batch** (dozens of ops, one round-trip, one undo), get/set properties + attributes with full round-trip serialization — particle curves, gradients, fonts (+ **mass_edit**), **snapshots** (checkpoint/restore any subtree), playtest control + in-sim probing, **scan_perf** / **project_health** / **make_responsive** audits, CollectionService tags, tree inspection (**describe**), run Luau, output log + live error feed, project-wide find-and-replace, **history** (undo/redo), selection, and **http_get**.
+83 tools your AI can call: read/write scripts + **line-level edits** + atomic **patch_script**, create/clone instances + **create_tree** (whole nested subtree in one call) + **batch** (dozens of ops, one round-trip, one undo), get/set properties + attributes with full round-trip serialization — particle curves, gradients, fonts (+ **mass_edit**), **snapshots** (checkpoint/restore any subtree), **scan_perf** / **project_health** / **make_responsive** audits, CollectionService tags, tree inspection (**describe**), run Luau, output log + live error feed, project-wide find-and-replace, **history** (undo/redo), selection, and **http_get**.
 
 ### 🔄 Two-way file sync + git
 Open a place → its scripts auto-mirror to a local folder. Edit a file → Studio updates; edit in Studio → the file updates. Each place is a git repo with optional **auto-commit / auto-push** toggles. Multi-place + cross-place: copy a module straight from one open place into another.
@@ -40,7 +40,7 @@ Restart Studio + your AI client. Free + open-source (MIT): https://github.com/dr
 ### Honest about what's WIP
 - Script sync, AI tools, git, and the scanner are solid and tested.
 - Non-script **instance** mirroring (models/parts as files) is in progress — geometry stays in Studio by reference (a Roblox plugin limit, same as Rojo/Argon).
-- Screenshots ship (`capture_screenshot`, Windows-only for now) and programmatic playtest ships for **Run mode** (`playtest` start/stop/pause + in-sim probing/input). Full Play Solo (F5, with character) has no plugin API — pairs with Roblox's official MCP for that.
+- Screenshots ship (`capture_screenshot`, Windows-only for now). **Playtest control is deliberately not ours** — Roblox's official Studio MCP starts/stops real Play Solo and drives the character, so Tufan dropped its plugin-side Run-mode version in v0.14 rather than ship a weaker duplicate. Tufan still watches the session: output log, live error feed, screenshots, `is_running`.
 
 Built by **Tufan Studio**. Feedback + PRs welcome — tell me what tools you want next.
 

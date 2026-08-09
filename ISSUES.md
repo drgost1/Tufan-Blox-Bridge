@@ -5,8 +5,25 @@ live place (Chomolokko Beach & Bars), with evidence, impact, and concrete fixes.
 
 **Status:** ✅ Fixed · 🛠️ Partially fixed · ⛔ Open · ℹ️ Not our bug
 
-> Current version: **v0.12.0** (server-only — the v0.8.0 plugin `.rbxm` stays
-> current). After upgrading, restart the MCP client (npx pulls latest).
+> Current version: **v0.14.0** (server + plugin — rebuild/reinstall the `.rbxm`,
+> the playtest handler is gone from it). After upgrading, restart the MCP client
+> (npx pulls latest).
+
+## ⛔ Removed in v0.14.0 — playtest surface (deliberate)
+`playtest` (start/stop/pause), `playtest_probe`, and `playtest_input` are **gone**,
+along with the plugin's `Playtest` handler and the `startPlaytest`/`stopPlaytest`/
+`pausePlaytest` ops in `System.luau`. **Roblox's official Studio MCP owns play
+sessions now** — it drives real Play Solo with a character, keyboard/mouse input
+and character navigation, which a plugin-side `RunService:Run()` can never match
+(Run mode = server scripts + physics, no character). Shipping a weaker duplicate
+was costing tool-menu space and steering the AI to the worse option.
+
+**Migration:** `playtest` → official `start_stop_play`; `playtest_probe` → official
+`execute_luau`; `playtest_input` → official `user_keyboard_input` / `user_mouse_input` /
+`character_navigation`. **What stays in Tufan:** `is_running` (read-only edit-vs-run
+guard, re-homed to the Meta group), plus everything that *observes* a session —
+`get_output_log`, `get_recent_errors` (live feed, no Studio round-trip), and
+`capture_screenshot`. Tool surface 86 → 83.
 
 ## ✅ What landed in v0.6.1 → v0.12.0
 - **Real-world hardening (v0.12.0)** — closes the 7 findings from the v0.11 live palm test (grey colors, wrong scale, unanchored, leaked datablock names, no placement, blind spend, no metadata). New **post-insert finishing layer** (`src/finishing.ts`, one canned-Luau round-trip / one undo step): collapse importer wrappers, semantic MeshPart renames, flat-color recovery onto SurfaceAppearance-less parts (Roblox drops baseColorFactor — confirmed open bug), `Model:ScaleTo` to `targetHeightStuds`, anchor, CollisionFidelity (edit-mode plugin-writable, re-cooks), `Tufan*` traceability attributes, `onGround`/`position` flush placement. Wired into `generate_asset` (always, anchor default true) and `import_file` (strictly opt-in — default behavior byte-identical). New `blender_process` action **`thumbnail`** (auto-framed render, EEVEE-Next→Cycles-CPU fallback, returned as an MCP image) + **`previewFirst`** on generate_asset (see the 20cr geometry preview as a thumbnail BEFORE the +10cr texture refine). Meshy client fixes: `should_remesh:true` now sent with `target_polycount` (meshy-6 silently ignored it otherwise), `consumed_credits` surfaced, `meshy_task action:"balance"`. Cell Fracture extension installed + `fracture` **verified producing real shards** on Blender 5.1 (extension module `bl_ext.blender_org.cell_fracture`; enable must run AFTER `read_factory_settings`). **Verified:** blender-e2e 13/13, finishing-e2e 10/10 live against Studio (rename/recolor/scale-to-28-studs/anchor/Hull/attributes/grounded all property-read-back confirmed).

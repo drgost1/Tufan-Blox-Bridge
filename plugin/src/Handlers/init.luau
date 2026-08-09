@@ -38,7 +38,6 @@ local function build(ctx)
 	load("Perf", script.Perf)
 	load("Describe", script.Describe)
 	load("Snapshot", script.Snapshot)
-	load("Playtest", script.Playtest)
 	load("Responsive", script.Responsive)
 	load("Apply", script.Parent.Sync.Apply)
 
