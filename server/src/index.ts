@@ -22,6 +22,16 @@ import { loadRegistry, validatedBase } from "./registry.js";
 import { runtimeConfig } from "./config.js";
 import { log } from "./util/log.js";
 
+// CLI commands: intercept BEFORE the MCP server starts. No args (or anything not
+// a known command) keeps the byte-identical default: stdio MCP server.
+const CLI_COMMANDS: Record<string, () => Promise<number>> = {
+  "install-plugin": async () => (await import("./cli/installPlugin.js")).installPlugin(),
+};
+const cliCmd = process.argv[2];
+if (cliCmd && CLI_COMMANDS[cliCmd]) {
+  process.exit(await CLI_COMMANDS[cliCmd]());
+}
+
 async function main() {
   loadRegistry();
   if (process.env.TUFAN_PROJECT) log(`primary project: ${process.env.TUFAN_PROJECT}`);

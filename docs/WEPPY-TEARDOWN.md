@@ -9,7 +9,7 @@ _Generated 2026-06-30 via a 23-agent adversarial workflow (every "weppy wins" cl
 
 ## 1. The Real Answer
 
-Weppy is a better **product**, not a better **engine**. Tufan's core capability is clearly stronger -- mesh generation, DataStore/cloud_luau, real per-place git with offsite backup, a backdoor scanner, and fully-open/no-paywall all belong to Tufan and weppy has no answer. The "performs significantly better" perception is almost entirely **onboarding/UX/marketing + one self-inflicted bug**, not capability and not really token-cost. When the teardown was pressure-tested, every "weppy is leaner/faster/smarter-per-token" claim collapsed to a tie (its "streaming transport" can't even physically push to a Studio plugin; its per-call Place routing is something Tufan already has via `placeArg`; in Claude Code the 87 tools are deferred anyway). What survived as genuine weppy wins are all *surfaces*: a web dashboard, a multi-client installer, a VSCode tree, shipped agent skills, marketplace listings -- plus the killer: **Tufan's documented install resolves a stale 0.6.0 because npm publish is paused**, so a new user literally runs 7 versions behind the real code. That single bug does more damage to perception than weppy's entire feature list.
+Weppy is a better **product**, not a better **engine**. Tufan's core capability is clearly stronger -- mesh generation, DataStore/cloud_luau, real per-place git with offsite backup, a backdoor scanner, and fully-open/no-paywall all belong to Tufan and weppy has no answer. The "performs significantly better" perception is almost entirely **onboarding/UX/marketing + one self-inflicted bug**, not capability and not really token-cost. When the teardown was pressure-tested, every "weppy is leaner/faster/smarter-per-token" claim collapsed to a tie (its "streaming transport" can't even physically push to a Studio plugin; its per-call Place routing is something Tufan already has via `placeArg`; in Claude Code the 86 tools are deferred anyway). What survived as genuine weppy wins are all *surfaces*: a web dashboard, a multi-client installer, a VSCode tree, shipped agent skills, marketplace listings -- plus the killer: **Tufan's documented install resolves a stale 0.6.0 because npm publish is paused**, so a new user literally runs 7 versions behind the real code. That single bug does more damage to perception than weppy's entire feature list.
 
 ## 2. Scorecard
 
@@ -36,7 +36,7 @@ Weppy is a better **product**, not a better **engine**. Tufan's core capability 
 | **npm install freshness** | **weppy** | Tufan's `@latest` resolves dead 0.6.0 (publish paused) -- #1 perceived-quality killer |
 | Web dashboard (topology, tools history, before/after changelog) | **weppy** | Tufan has zero web UI, only a bare DockWidget |
 | Multi-client installer (7 clients, auto-register) | **weppy** | Tufan auto-registers Claude Code only; others hand-wire |
-| Shipped per-IDE skill/agent guides | **weppy** | Tufan ships no agent coaching -> fresh agent fumbles 87 tools |
+| Shipped per-IDE skill/agent guides | **weppy** | Tufan ships no agent coaching -> fresh agent fumbles 86 tools |
 | VSCode "Roblox Explorer" tree | **weppy** | Tufan tree lives only in Studio / as files |
 | Marketplace listings (VSIX, Open VSX, plugin marketplaces, Smithery) | **weppy** | Tufan = GitHub + paused npm only |
 | Conflict-resolution UX (direction policy + post-play prompt) | **weppy** | Tufan's live sync is silent last-writer-wins; no conflict surface |

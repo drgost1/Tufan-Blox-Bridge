@@ -34,6 +34,19 @@ function capBody(s: string): string {
   return s.length > MAX_BODY ? `${s.slice(0, MAX_BODY)}\n…(truncated at ${MAX_BODY} of ${s.length} chars — narrow with a key/cursor)` : s;
 }
 
+/**
+ * Surface Open Cloud rate-limit headers (x-ratelimit-*) when the API sends them.
+ * Since 2026-07-29 these calls share the SAME unified per-experience request budget
+ * as the live game's in-game DataStore calls, so remaining-quota info matters here.
+ */
+function quotaNote(headers: Headers): string {
+  const parts: string[] = [];
+  headers.forEach((v, k) => {
+    if (k.toLowerCase().startsWith("x-ratelimit")) parts.push(`${k}=${v}`);
+  });
+  return parts.length ? `\nquota: ${parts.join("  ")}` : "";
+}
+
 type OC = { status: number; ok: boolean; body: string; headers: Headers };
 async function ocFetch(url: string, key: string, init: RequestInit = {}): Promise<OC> {
   const res = await fetch(url, {
@@ -53,7 +66,8 @@ function mapError(oc: OC, key: string): string {
       `list (or an IP allowlist blocked it).\n${b}\n\n${DS_KEY_HELP}`
     );
   if (oc.status === 404) return `HTTP 404 — datastore/entry not found.\n${b}`;
-  if (oc.status === 429) return `HTTP 429 — rate limited (Open Cloud allows ~300 req/min/universe). Back off and retry.\n${b}`;
+  if (oc.status === 429)
+    return `HTTP 429 — rate limited. Post-2026-07-29 unified limits: Open Cloud calls share the live game's per-experience DataStore budget (base 300 + CCU × multiplier per request type/minute). Back off and retry.\n${b}`;
   return `HTTP ${oc.status}: ${b}`;
 }
 
@@ -69,7 +83,11 @@ export function registerDataStoreTools(server: McpServer) {
         "actions (gated — need confirm:true and are blocked in read-only mode): set, delete, increment. " +
         "⚠ SESSION-LOCK WARNING: a live game server owns the keys of ONLINE players (ProfileStore session " +
         "lock); the REST write path ignores that lock, so writing such a key either gets overwritten by the " +
-        "server's autosave or corrupts the live session. Only write keys for OFFLINE players. Needs an Open " +
+        "server's autosave or corrupts the live session. Only write keys for OFFLINE players. ⚠ SHARED " +
+        "BUDGET: since 2026-07-29 Open Cloud DataStore calls count against the SAME unified per-experience " +
+        "request budget as the live game's in-game DataStore calls (base 300 + CCU × multiplier per request " +
+        "type/minute) — heavy MCP-driven reads/writes can starve a running game; watch the `quota:` line when " +
+        "the API returns rate-limit headers. Needs an Open " +
         "Cloud key with universe-datastores scopes (TUFAN_OPENCLOUD_KEY) and a published universe " +
         "(auto-detected from game.GameId, or TUFAN_UNIVERSE_ID).",
       inputSchema: {
@@ -131,7 +149,7 @@ export function registerDataStoreTools(server: McpServer) {
           case "list_datastores": {
             const url = `${DS_BASE}/universes/${u}/standard-datastores` + qs({ prefix: a.prefix, cursor: a.cursor, limit: a.limit });
             const oc = await ocFetch(url, key);
-            return oc.ok ? text(capBody(oc.body)) : errorText(mapError(oc, key));
+            return oc.ok ? text(capBody(oc.body) + quotaNote(oc.headers)) : errorText(mapError(oc, key));
           }
           case "list_keys": {
             if (!a.datastoreName) return errorText("list_keys needs datastoreName");
@@ -147,7 +165,7 @@ export function registerDataStoreTools(server: McpServer) {
                 limit: a.limit,
               });
             const oc = await ocFetch(url, key);
-            return oc.ok ? text(capBody(oc.body)) : errorText(mapError(oc, key));
+            return oc.ok ? text(capBody(oc.body) + quotaNote(oc.headers)) : errorText(mapError(oc, key));
           }
           case "get": {
             if (!a.datastoreName || !a.entryKey) return errorText("get needs datastoreName + entryKey");
@@ -159,7 +177,7 @@ export function registerDataStoreTools(server: McpServer) {
             const version = oc.headers.get("roblox-entry-version");
             const userIds = oc.headers.get("roblox-entry-userids");
             const meta = [version ? `version: ${version}` : "", userIds ? `userIds: ${userIds}` : ""].filter(Boolean).join("  ");
-            return text((meta ? meta + "\n" : "") + capBody(oc.body));
+            return text((meta ? meta + "\n" : "") + capBody(oc.body) + quotaNote(oc.headers));
           }
           case "set": {
             if (!a.datastoreName || !a.entryKey) return errorText("set needs datastoreName + entryKey");
@@ -176,7 +194,7 @@ export function registerDataStoreTools(server: McpServer) {
               `${DS_BASE}/universes/${u}/standard-datastores/datastore/entries/entry` +
               qs({ datastoreName: a.datastoreName, entryKey: a.entryKey, scope, matchVersion: a.matchVersion, exclusiveCreate: a.exclusiveCreate });
             const oc = await ocFetch(url, key, { method: "POST", headers, body });
-            return oc.ok ? text(`✓ set ${a.datastoreName}/${a.entryKey} (scope ${scope})\n${capBody(oc.body)}`) : errorText(mapError(oc, key));
+            return oc.ok ? text(`✓ set ${a.datastoreName}/${a.entryKey} (scope ${scope})\n${capBody(oc.body)}${quotaNote(oc.headers)}`) : errorText(mapError(oc, key));
           }
           case "delete": {
             if (!a.datastoreName || !a.entryKey) return errorText("delete needs datastoreName + entryKey");
@@ -184,7 +202,7 @@ export function registerDataStoreTools(server: McpServer) {
               `${DS_BASE}/universes/${u}/standard-datastores/datastore/entries/entry` +
               qs({ datastoreName: a.datastoreName, entryKey: a.entryKey, scope });
             const oc = await ocFetch(url, key, { method: "DELETE" });
-            return oc.ok ? text(`✓ deleted ${a.datastoreName}/${a.entryKey} (scope ${scope})`) : errorText(mapError(oc, key));
+            return oc.ok ? text(`✓ deleted ${a.datastoreName}/${a.entryKey} (scope ${scope})${quotaNote(oc.headers)}`) : errorText(mapError(oc, key));
           }
           case "increment": {
             if (!a.datastoreName || !a.entryKey) return errorText("increment needs datastoreName + entryKey");
@@ -193,7 +211,7 @@ export function registerDataStoreTools(server: McpServer) {
               `${DS_BASE}/universes/${u}/standard-datastores/datastore/entries/entry/increment` +
               qs({ datastoreName: a.datastoreName, entryKey: a.entryKey, incrementBy: a.incrementBy, scope });
             const oc = await ocFetch(url, key, { method: "POST" });
-            return oc.ok ? text(`✓ incremented ${a.datastoreName}/${a.entryKey} by ${a.incrementBy}\n${capBody(oc.body)}`) : errorText(mapError(oc, key));
+            return oc.ok ? text(`✓ incremented ${a.datastoreName}/${a.entryKey} by ${a.incrementBy}\n${capBody(oc.body)}${quotaNote(oc.headers)}`) : errorText(mapError(oc, key));
           }
           case "list_ordered": {
             if (!a.orderedDataStore) return errorText("list_ordered needs orderedDataStore");
@@ -202,13 +220,13 @@ export function registerDataStoreTools(server: McpServer) {
               // order_by: omit for ascending (always valid); "desc" for top-first.
               qs({ max_page_size: a.limit, page_token: a.cursor, order_by: a.order === "desc" ? "desc" : undefined });
             const oc = await ocFetch(url, key);
-            return oc.ok ? text(capBody(oc.body)) : errorText(mapError(oc, key));
+            return oc.ok ? text(capBody(oc.body) + quotaNote(oc.headers)) : errorText(mapError(oc, key));
           }
           case "get_ordered": {
             if (!a.orderedDataStore || !a.entryKey) return errorText("get_ordered needs orderedDataStore + entryKey");
             const url = `${ODS_BASE}/universes/${u}/orderedDataStores/${encodeURIComponent(a.orderedDataStore)}/scopes/${encodeURIComponent(scope)}/entries/${encodeURIComponent(a.entryKey)}`;
             const oc = await ocFetch(url, key);
-            return oc.ok ? text(capBody(oc.body)) : errorText(mapError(oc, key));
+            return oc.ok ? text(capBody(oc.body) + quotaNote(oc.headers)) : errorText(mapError(oc, key));
           }
         }
       } catch (e) {

@@ -30,6 +30,8 @@ import { registerSourcemapTools } from "./tools/sourcemap.js";
 import { registerTypecheckTools } from "./tools/typecheck.js";
 import { registerDataStoreTools } from "./tools/datastore.js";
 import { registerCloudLuauTools } from "./tools/cloud_luau.js";
+import { registerServerLogTools } from "./tools/serverLogs.js";
+import { registerProjectContextTools } from "./tools/projectContext.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -63,13 +65,14 @@ const WRITE_TOOLS = new Set([
   // inspector mode.
 ]);
 
-// The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~22 so the model
+// The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~25 so the model
 // isn't choosing among 70 tools every call ("many tools ≠ many hands"). Everything
 // else still works — it's just off the default surface until TUFAN_TOOLSET=full
 // (the default). The everyday hands that cover ~95% of work.
 const CORE_TOOLS = new Set([
   "ping",
   "get_tree", "describe", "search_objects", "get_properties", "script_source", "get_recent_errors",
+  "get_server_logs", "get_server_history", "project_context",
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
   "patch_script", "run_luau", "project_health",
   "capture_screenshot", "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
@@ -77,7 +80,7 @@ const CORE_TOOLS = new Set([
 ]);
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.14.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.15.0" });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
@@ -151,6 +154,8 @@ export function createServer(): McpServer {
   registerTypecheckTools(server);
   registerDataStoreTools(server);
   registerCloudLuauTools(server);
+  registerServerLogTools(server);
+  registerProjectContextTools(server);
 
   return server;
 }
