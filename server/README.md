@@ -17,14 +17,26 @@ Keep Roblox's built-in server for play tests, screenshots and live debugging. Ad
 - **Game operations:** live DataStores, `cloud_luau` and asset uploads through Open Cloud.
 - **Teamwork with the built-in server:** Tufan tells your AI which server owns which job, and flags results that missed a running Play session.
 
-## Use
+## Quick install
 
-```
-claude mcp add tufan --env TUFAN_PROJECT=C:\path\to\roblox\project -- npx -y tufan-blox-bridge
+You need Node.js 18 or newer. Paste this into Claude Code, Cursor or another AI agent, opened in your Roblox project folder:
+
+```text
+Set up Tufan-Blox-Bridge, a Roblox Studio MCP server and plugin, for this project.
+
+1. Run `npx -y tufan-blox-bridge@latest setup` in this folder. It installs the server and the Studio plugin, and registers with Claude Code or Cursor.
+2. If it says nothing was registered, add the config it prints to your MCP settings, keeping any servers already there.
+3. Don't ask me for API keys. They're optional.
+4. Tell me what it did and the next steps it printed.
 ```
 
-Install the Studio plugin and full setup instructions:
-**https://github.com/drgost1/Tufan-Blox-Bridge**
+Or run it yourself:
+
+```bash
+npx -y tufan-blox-bridge@latest setup
+```
+
+Then restart Roblox Studio and your AI client. The Studio plugin ships inside this package. Full docs: **https://github.com/drgost1/Tufan-Blox-Bridge**
 
 ## Env
 

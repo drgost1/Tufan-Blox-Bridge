@@ -110,5 +110,4 @@ Write-Host ""
 Write-Host "  Done. Next:" -ForegroundColor Green
 Write-Host "    1. Restart Roblox Studio  -> 'Tufan Studio' toolbar, green 'connected' pill" -ForegroundColor White
 Write-Host "    2. Restart your AI client -> it spawns the server on first use" -ForegroundColor White
-Write-Host "    3. Add a default.project.json to map folders <-> Studio for file sync" -ForegroundColor White
 Write-Host ""

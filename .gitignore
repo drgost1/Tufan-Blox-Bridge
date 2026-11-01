@@ -32,3 +32,5 @@ commit-msg.txt
 .env.*
 server/meshy-queue-state.json
 server/meshy-queue/
+# copied in at pack time so the npm package ships the plugin
+/server/TufanBloxBridge.rbxm

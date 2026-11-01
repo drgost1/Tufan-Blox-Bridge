@@ -9,6 +9,7 @@
 // When the place disconnects, the mirror is made read-only (copy-only) until
 // it reconnects.
 
+import { readFileSync } from "node:fs";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./mcp/server.js";
 import { startBridge } from "./bridge/http.js";
@@ -24,13 +25,33 @@ import { log } from "./util/log.js";
 
 // CLI commands: intercept BEFORE the MCP server starts. No args (or anything not
 // a known command) keeps the byte-identical default: stdio MCP server.
+const printVersion = async () => {
+  const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  console.log(version);
+  return 0;
+};
+const printHelp = async () => {
+  console.log(
+    `tufan-blox-bridge: Roblox Studio MCP server and plugin\n\n` +
+      `Usage:\n` +
+      `  tufan-blox-bridge setup            Install the Studio plugin and register with Claude Code or Cursor\n` +
+      `  tufan-blox-bridge install-plugin   Install only the Studio plugin\n` +
+      `  tufan-blox-bridge --version        Print the version\n` +
+      `  tufan-blox-bridge                  Run the MCP server over stdio (what your AI client starts)\n\n` +
+      `Docs: https://github.com/drgost1/Tufan-Blox-Bridge`,
+  );
+  return 0;
+};
 const CLI_COMMANDS: Record<string, () => Promise<number>> = {
   "install-plugin": async () => (await import("./cli/installPlugin.js")).installPlugin(),
+  setup: async () => (await import("./cli/setup.js")).setup(),
+  help: printHelp,
+  "--help": printHelp,
+  "-h": printHelp,
+  "--version": printVersion,
+  "-v": printVersion,
 };
-const cliCmd = process.argv[2];
-if (cliCmd && CLI_COMMANDS[cliCmd]) {
-  process.exit(await CLI_COMMANDS[cliCmd]());
-}
+const cliCommand = CLI_COMMANDS[process.argv[2]];
 
 async function main() {
   loadRegistry();
@@ -102,7 +123,12 @@ async function main() {
   log("MCP server connected over stdio");
 }
 
-main().catch((e) => {
-  log(`fatal: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
-  process.exit(1);
-});
+if (cliCommand) {
+  // exitCode, not process.exit(): exiting with fetch sockets open crashes Node on Windows.
+  process.exitCode = await cliCommand();
+} else {
+  main().catch((e) => {
+    log(`fatal: ${e instanceof Error ? e.stack ?? e.message : String(e)}`);
+    process.exit(1);
+  });
+}

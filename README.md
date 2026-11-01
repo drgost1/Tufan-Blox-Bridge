@@ -10,6 +10,31 @@ Keep the built-in server for play tests and screenshots. Add Tufan for everythin
 
 ## Quick install
 
+You need [Node.js 18 or newer](https://nodejs.org).
+
+### Easiest: paste this into your AI agent
+
+Open Claude Code, Cursor or another AI agent in your Roblox project folder and paste:
+
+```text
+Set up Tufan-Blox-Bridge, a Roblox Studio MCP server and plugin, for this project.
+
+1. Run `npx -y tufan-blox-bridge@latest setup` in this folder. It installs the server and the Studio plugin, and registers with Claude Code or Cursor.
+2. If it says nothing was registered, add the config it prints to your MCP settings, keeping any servers already there.
+3. Don't ask me for API keys. They're optional.
+4. Tell me what it did and the next steps it printed.
+```
+
+### Or run one command
+
+```bash
+npx -y tufan-blox-bridge@latest setup
+```
+
+Then restart Roblox Studio and your AI client, and open the **Tufan Studio** toolbar button. A green pill means it's connected.
+
+### Or set it up by hand
+
 **1 — One-line installer** (run from your Roblox project folder). It checks Node ≥ 18, installs the MCP server globally (`npm i -g tufan-blox-bridge`), drops the Studio plugin into your Plugins folder (`tufan-blox-bridge install-plugin`), and auto-registers with Claude Code when the `claude` CLI is on PATH:
 
 ```powershell
@@ -51,7 +76,7 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 ### Other install methods
 - **No install:** `npx -y tufan-blox-bridge` or `bunx tufan-blox-bridge`.
 - **Global:** `npm i -g tufan-blox-bridge` → command `tufan-blox-bridge`.
-- **Plugin:** `tufan-blox-bridge install-plugin` (downloads the latest release's `.rbxm` into your Plugins folder), or manually download `TufanBloxBridge.rbxm` from [Releases](https://github.com/drgost1/Tufan-Blox-Bridge/releases) (or `pwsh scripts/build-plugin.ps1 -Install`).
+- **Plugin:** `tufan-blox-bridge install-plugin` (copies the bundled `.rbxm` into your Plugins folder), or manually download `TufanBloxBridge.rbxm` from [Releases](https://github.com/drgost1/Tufan-Blox-Bridge/releases) (or `pwsh scripts/build-plugin.ps1 -Install`).
 
 ---
 
