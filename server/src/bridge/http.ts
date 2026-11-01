@@ -4,6 +4,8 @@
 import express from "express";
 import { applyStudioChange, applyStudioSync, type WriterOptions } from "../sync/writer.js";
 import {
+  isPlaying,
+  notePlayHeartbeat,
   onReady,
   getSession,
   listSessions,
@@ -71,6 +73,13 @@ export function startBridge(writerOpts: WriterOptions) {
       if (all.length === 1) session = all[0];
     }
     if (session && Array.isArray(events)) pushEvents(session.placeId, events);
+    res.json({ ok: true });
+  });
+
+  // Sent every few seconds by the plugin's runtime copy while a Play session runs.
+  app.post("/play-heartbeat", (req, res) => {
+    const placeId = Number(req.body?.placeId);
+    if (Number.isFinite(placeId)) notePlayHeartbeat(placeId);
     res.json({ ok: true });
   });
 
@@ -256,6 +265,7 @@ export function startBridge(writerOpts: WriterOptions) {
         root: s.root,
         mirrorRoot: s.mirrorRoot,
         lastSeen: s.lastSeen,
+        playing: isPlaying(s.placeId),
       })),
     });
   });

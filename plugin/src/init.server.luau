@@ -23,6 +23,30 @@ end
 local RunService = game:GetService("RunService")
 if not RunService:IsEdit() then
 	print("[TufanBloxBridge] runtime DataModel copy — staying passive (edit-context instance serves)")
+	-- The edit copy can't see Play starting, so the runtime server copy reports it.
+	-- It stops when Studio destroys this copy, and the server expires the flag.
+	if RunService:IsServer() then
+		local Http = game:GetService("HttpService")
+		local serverUrl = require(script.Net.Config).serverUrl
+		task.spawn(function()
+			local warned = false
+			while true do
+				local ok, err = pcall(function()
+					return Http:RequestAsync({
+						Url = serverUrl .. "/play-heartbeat",
+						Method = "POST",
+						Headers = { ["Content-Type"] = "application/json" },
+						Body = Http:JSONEncode({ placeId = game.PlaceId }),
+					})
+				end)
+				if not ok and not warned then
+					warned = true
+					warn("[TufanBloxBridge] couldn't report the Play session to the server: " .. tostring(err))
+				end
+				task.wait(3)
+			end
+		end)
+	end
 	return
 end
 

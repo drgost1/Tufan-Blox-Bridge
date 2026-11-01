@@ -7,7 +7,6 @@ import { registerTreeTools } from "./tools/tree.js";
 import { registerLuauTools } from "./tools/luau.js";
 import { registerLogTools } from "./tools/logs.js";
 import { registerAssetTools } from "./tools/assets.js";
-import { registerCaptureTools } from "./tools/capture.js";
 import { registerGitTools } from "./tools/git.js";
 import { registerPlaceTools } from "./tools/places.js";
 import { registerSelectionTools } from "./tools/selection.js";
@@ -32,6 +31,7 @@ import { registerDataStoreTools } from "./tools/datastore.js";
 import { registerCloudLuauTools } from "./tools/cloud_luau.js";
 import { registerServerLogTools } from "./tools/serverLogs.js";
 import { registerProjectContextTools } from "./tools/projectContext.js";
+import { isPlaying, resolveTargetPlace } from "../bridge/sessions.js";
 import { runtimeConfig } from "../config.js";
 import { log } from "../util/log.js";
 
@@ -75,25 +75,58 @@ const CORE_TOOLS = new Set([
   "get_server_logs", "get_server_history", "project_context",
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
   "patch_script", "run_luau", "project_health",
-  "capture_screenshot", "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
+  "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
   "scene_state", "pick",
 ]);
 
+// Sent to every MCP client at connect. An MCP server can't call another server's
+// tools itself, so this is how the AI learns which server owns which job.
+const ROUTING_INSTRUCTIONS = [
+  "Tufan works on the EDIT copy of a place in Roblox Studio. Pair it with Roblox's official Studio MCP (the Roblox_Studio server) and route by job:",
+  "- Screenshots: official screen_capture. Tufan has no screenshot tool.",
+  "- Play tests: official start_stop_play, character_navigation, user_keyboard_input, user_mouse_input.",
+  "- Real-time debugging in a running game: official execute_luau with datamodel_type Client or Server, plus get_console_output. Tufan's get_recent_errors also streams live errors.",
+  "- Everything else, use Tufan: editing scripts and instances, bulk builds (batch, create_tree, mass_edit), snapshot/restore, git, backdoor and performance scans, asset import, DataStore and production logs.",
+  "If the official server isn't connected, tell the user instead of treating a Tufan result as proof of how the running game behaves.",
+].join("\n");
+
+const PLAY_SESSION_NOTE =
+  "NOTE: Studio is in a Play session. This call used the EDIT copy, not the running game, and any change only shows up after Play stops. " +
+  "To read or change the live game use the official Roblox_Studio MCP: execute_luau (datamodel_type Client or Server), get_console_output, screen_capture.";
+
+// Tools that act on the place's edit copy, where a result could be mistaken for live game state.
+const EDIT_COPY_TOOLS = new Set([
+  ...[...WRITE_TOOLS].filter((name) => !/^git_|^meshy_|^blender_|^cloud_luau$|^generate_asset$|^pull_place$|^copy_script_across$|^import_file$/.test(name)),
+  "get_tree", "get_descendants", "describe", "get_properties", "search_objects", "script_source",
+  "scene_state", "pick", "objects_in_region", "project_health", "scan_perf",
+]);
+
+function withPlaySessionNote(handler: (...args: any[]) => Promise<any>) {
+  return async (...args: any[]) => {
+    const result = await handler(...args);
+    const target = resolveTargetPlace(args[0]?.place);
+    if (target.placeId !== undefined && isPlaying(target.placeId) && Array.isArray(result?.content)) {
+      result.content.unshift({ type: "text", text: PLAY_SESSION_NOTE });
+    }
+    return result;
+  };
+}
+
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.15.0" });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.16.0" }, { instructions: ROUTING_INSTRUCTIONS });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)
   //   TUFAN_TOOLSET=core   → expose ONLY the lean core (~22 hands)
   const readOnly = runtimeConfig.readOnly;
   const coreOnly = process.env.TUFAN_TOOLSET === "core";
+  const orig = server.registerTool.bind(server);
+  (server as any).registerTool = (name: string, config: unknown, handler: (...args: any[]) => Promise<any>) => {
+    if (readOnly && WRITE_TOOLS.has(name)) return undefined;
+    if (coreOnly && !CORE_TOOLS.has(name)) return undefined;
+    return (orig as any)(name, config, EDIT_COPY_TOOLS.has(name) ? withPlaySessionNote(handler) : handler);
+  };
   if (readOnly || coreOnly) {
-    const orig = server.registerTool.bind(server);
-    (server as any).registerTool = (name: string, ...rest: unknown[]) => {
-      if (readOnly && WRITE_TOOLS.has(name)) return undefined;
-      if (coreOnly && !CORE_TOOLS.has(name)) return undefined;
-      return (orig as any)(name, ...rest);
-    };
     if (readOnly) log(`READ-ONLY mode — ${WRITE_TOOLS.size} write tools hidden; inspection only`);
     if (coreOnly) log(`CORE toolset — only ${CORE_TOOLS.size} core tools exposed (set TUFAN_TOOLSET=full for all)`);
   }
@@ -115,13 +148,19 @@ export function createServer(): McpServer {
     "is_running",
     {
       description:
-        "Whether a simulation is running in the target Studio, and whether it's Run mode. " +
+        "Whether a simulation is running in the target Studio: a Play session, Run mode, or plain edit mode. " +
         "Read-only state check — use it to confirm you're in edit mode before mutating. " +
         "To START/STOP a play session or send input, use Roblox's official Studio MCP.",
       inputSchema: { place: placeArg },
     },
     async ({ place }) =>
-      runStudio("isRunning", {}, (r) => (r?.running ? `running${r.runMode ? " (run mode)" : ""}` : "not running (edit mode)"), place),
+      runStudio("isRunning", {}, (r) => {
+        const target = resolveTargetPlace(place);
+        if (target.placeId !== undefined && isPlaying(target.placeId)) {
+          return "Play session running. Tufan still reaches the edit copy only; use the official Roblox_Studio MCP for the live game.";
+        }
+        return r?.running ? `running${r.runMode ? " (run mode)" : ""}` : "not running (edit mode)";
+      }, place),
   );
 
   registerPlaceTools(server);
@@ -132,7 +171,6 @@ export function createServer(): McpServer {
   registerLuauTools(server);
   registerLogTools(server);
   registerAssetTools(server);
-  registerCaptureTools(server);
   registerGitTools(server);
   registerSelectionTools(server);
   registerTagTools(server);

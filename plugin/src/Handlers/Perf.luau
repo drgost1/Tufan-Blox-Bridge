@@ -5,6 +5,35 @@ local Workspace = game:GetService("Workspace")
 
 local LOOP_CAP = 25 -- max busy-loop scripts to report
 
+-- Only what ships with the game. The rest of the DataModel is Studio itself
+-- (installed plugins, CoreGui, stats), which would read as false problems.
+local GAME_SERVICES = {
+	"Workspace", "ServerScriptService", "ServerStorage", "ReplicatedStorage", "ReplicatedFirst",
+	"StarterGui", "StarterPack", "StarterPlayer", "Lighting", "SoundService", "MaterialService",
+	"TextChatService", "Chat", "Teams", "LocalizationService",
+}
+
+local function gameServices()
+	local services = {}
+	for _, name in ipairs(GAME_SERVICES) do
+		local service = game:FindFirstChild(name)
+		if service then
+			table.insert(services, service)
+		end
+	end
+	return services
+end
+
+local function gameDescendants()
+	local all = {}
+	for _, service in ipairs(gameServices()) do
+		for _, descendant in ipairs(service:GetDescendants()) do
+			table.insert(all, descendant)
+		end
+	end
+	return all
+end
+
 -- A real yield CALL — `wait(...)`, `task.wait(...)` or `someSignal:Wait()`. A
 -- bare substring (a comment, an identifier like `await`) must NOT count.
 local function bodyYields(body)
@@ -103,7 +132,7 @@ return function(register)
 			streamingEnabled = Workspace.StreamingEnabled
 		end)
 
-		for _, d in ipairs(game:GetDescendants()) do
+		for _, d in ipairs(gameDescendants()) do
 			s.total += 1
 			if d:IsA("BasePart") then
 				s.parts += 1
@@ -116,7 +145,7 @@ return function(register)
 			end
 			if d:IsA("MeshPart") then
 				s.meshparts += 1
-				if d.TextureID == "" then
+				if d.TextureID == "" and not d:FindFirstChildOfClass("SurfaceAppearance") then
 					s.untexturedMesh += 1
 				end
 				if d.RenderFidelity == Enum.RenderFidelity.Precise then
@@ -180,7 +209,7 @@ return function(register)
 		local CollectionService = game:GetService("CollectionService")
 		local c = { instances = 0, scripts = 0, scriptBytes = 0, parts = 0, meshparts = 0, unions = 0, particles = 0, lights = 0 }
 		local byService = {}
-		for _, svc in ipairs(game:GetChildren()) do
+		for _, svc in ipairs(gameServices()) do
 			local ok, kids = pcall(function() return svc:GetDescendants() end)
 			if ok then
 				if #kids > 0 then byService[svc.Name] = #kids end

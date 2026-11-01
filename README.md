@@ -1,6 +1,6 @@
 # Tufan-Blox-Bridge
 
-**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 86 tools, two-way file sync, opt-in per-place git, a backdoor scanner, AI 3D-asset generation (Meshy + headless Blender + Open Cloud), local-file import, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
+**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 85 tools, two-way file sync, opt-in per-place git, a backdoor scanner, AI 3D-asset generation (Meshy + headless Blender + Open Cloud), local-file import, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
 
 > Unlike Rojo (file sync only) or other MCP plugins (AI control only), Tufan-Blox-Bridge does **AI control + two-way sync + git + security + asset generation + safe-mode** in a single tool — across one or more open places at once.
 
@@ -57,14 +57,14 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 86 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 85 tools.
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes commands and mirrors your scripts.
 
 The AI calls a tool → the server queues a command → the plugin's long-poll picks it up → executes in Studio → returns the result. The server also handles file sync and git on your machine.
 
 ## Features
 
-- 🛠 **Full Studio control** — 86 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
+- 🛠 **Full Studio control** — 85 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
 - 🔄 **Two-way file sync** — open a place and its script tree mirrors to disk; edit a file → Studio updates, edit in Studio → the file updates.
 - 🌿 **Opt-in per-place git** — off by default (no `.git`, no headache). Turn it on in the widget and each place becomes its own repo with Commit / Push / Backup / Setup-GitHub buttons + auto-commit/push toggles. Your choice persists across restarts.
 - 🛡 **Backdoor scanner** — `scan_backdoors` finds require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, and hidden binary payloads; `list_studio_plugins` surfaces the remote-code-plugin vector.
@@ -83,9 +83,9 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - 👥 **Concurrent multi-session** — run several Claude/Cursor sessions on the same Studio at once; one owns the plugin, the rest proxy through it, all commands serialized → no collisions.
 - 🧠 **Per-project AI memory** — `project_context` is a persistent markdown blob per place that the AI reads at session start (architecture, gotchas, false-bug traps) and updates as it learns — fewer tokens wasted re-discovering the project, fewer wrong conclusions.
 - 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides the 36 write tools; mixed tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay readable with writes blocked. Zero-risk AI exploration.
-- 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the 27 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
-- 👁 **Screenshots** — `capture_screenshot` returns a PNG of the Studio viewport so the AI can *see* its work. `get_asset_thumbnail` shows any catalog asset.
-- ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / `capture_screenshot` still watch it live, with `is_running` telling you edit mode from a live sim.
+- 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the 26 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
+- 👁 **Seeing the game — by design, not ours** — screenshots come from the official Studio MCP's `screen_capture`, a real viewport render even when Studio is behind other windows. The server tells the AI this at connect, and flags any Tufan call that misses a running Play session. `get_asset_thumbnail` shows any catalog asset.
+- ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / official `screen_capture` still watch it live, with `is_running` telling you edit mode from a live sim.
 - 🗺 **Multi-place** — `list_places`, `pull_place`, and `copy_script_across` to move a module straight from one open place into another.
 
 ## Tools (83)
@@ -110,7 +110,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Asset pipeline** | `generate_asset` · `meshy_generate` · `meshy_task` · `blender_run` · `blender_process` |
 | **Open Cloud** | `datastore` · `cloud_luau` |
 | **Security** | `scan_backdoors` · `list_studio_plugins` |
-| **Capture / HTTP** | `capture_screenshot` · `http_get` |
+| **HTTP** | `http_get` |
 | **Multi-place** | `list_places` · `pull_place` · `copy_script_across` |
 | **Meta** | `ping` · `is_running` |
 
@@ -130,7 +130,7 @@ In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden (including 
 |---|---|
 | `TUFAN_PROJECT` | Project root for sync/git (use forward slashes). Defaults to cwd. |
 | `TUFAN_READONLY=1` | Safe/inspector mode — write tools hidden, `script_source`/`tag` readable but write-blocked. |
-| `TUFAN_TOOLSET=core` | Lean mode — expose only the 27 everyday core tools (default `full` = all 86). |
+| `TUFAN_TOOLSET=core` | Lean mode — expose only the 26 everyday core tools (default `full` = all 85). |
 | `TUFAN_AUTOCOMMIT=1` | Auto-commit each Studio→file edit (also toggle-able in the widget). |
 | `TUFAN_AUTOPUSH=1` | Also push after each commit. |
 | `TUFAN_PROJECTS_DIR` | Base dir override for auto-registered projects. |
@@ -151,7 +151,6 @@ Where this can go — honest about what's built vs. next:
 - **Non-script instance mirroring** — models/parts as files on disk (geometry currently stays in Studio by reference, a plugin-API limit).
 - **More Power Tools** — `scan_deprecated` (flag deprecated API usage across all scripts).
 - **Asset pipeline, next steps** — mesh generation (v0.11) + real-world finishing/preview (v0.12) shipped. Still ahead: inventory-insert for unowned assets, Meshy auto-rigging/animation passthrough, bulk procedural kits via Blender geometry nodes, Roblox-privileged material generation (pairs with the official MCP).
-- **macOS screenshots** — `capture_screenshot` is Windows-only today.
 - **Shared off-machine backup** — push every place mirror to a configured GitHub org with one click.
 
 Issues + status tracked in [`ISSUES.md`](ISSUES.md). Contributions welcome.

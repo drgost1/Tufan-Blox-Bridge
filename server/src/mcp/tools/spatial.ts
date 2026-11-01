@@ -47,7 +47,7 @@ export function registerSpatialTools(server: McpServer) {
     "scene_state",
     {
       description:
-        "Spatial snapshot of the scene as the editor camera sees it: camera intrinsics (CFrame, FOV, viewport) + a curated list of visible objects, each with world position/orientation/size AND its on-screen pixel (x,y,depth,onScreen) via WorldToScreenPoint. This is what grounds a screenshot — it lets you say \"object X is at screen (px,py) = world (x,y,z)\". A Model counts as one object (bounding box); closest objects first. Pair with capture_screenshot. Read-only.",
+        "Spatial snapshot of the scene as the editor camera sees it: camera intrinsics (CFrame, FOV, viewport) + a curated list of visible objects, each with world position/orientation/size AND its on-screen pixel (x,y,depth,onScreen) via WorldToScreenPoint. This is what grounds a screenshot — it lets you say \"object X is at screen (px,py) = world (x,y,z)\". A Model counts as one object (bounding box); closest objects first. Pair with the official Roblox_Studio MCP's screen_capture. Read-only.",
       inputSchema: {
         rootPath: z.string().optional().describe("Scope the scan (default Workspace)"),
         maxObjects: z.number().int().min(1).max(120).optional().describe("default 40, capped 120 for transport"),

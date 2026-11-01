@@ -67,6 +67,7 @@ type PlaceSummary = {
   root: string;
   mirrorRoot?: string;
   lastSeen: number;
+  playing?: boolean;
 };
 let proxyOwner: string | null = null;
 let proxyPlaces: PlaceSummary[] = [];
@@ -96,6 +97,21 @@ export function setProxyMode(ownerUrl: string | null) {
   } else {
     proxyPlaces = [];
   }
+}
+
+// A Play session forks a runtime copy of the plugin that heartbeats /play-heartbeat.
+// It dies with the session without saying goodbye, so "playing" expires on silence.
+const PLAY_HEARTBEAT_TTL_MS = 9_000;
+const playHeartbeats = new Map<number, number>();
+
+export function notePlayHeartbeat(placeId: number) {
+  playHeartbeats.set(placeId, Date.now());
+}
+
+export function isPlaying(placeId: number): boolean {
+  if (proxyOwner) return proxyPlaces.find((p) => p.placeId === placeId)?.playing === true;
+  const last = playHeartbeats.get(placeId);
+  return last !== undefined && Date.now() - last < PLAY_HEARTBEAT_TTL_MS;
 }
 
 export function isProxy(): boolean {

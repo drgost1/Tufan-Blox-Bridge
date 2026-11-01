@@ -19,6 +19,12 @@ live place (Chomolokko Beach & Bars), with evidence, impact, and concrete fixes.
 - **CEL filter field name** — `get_server_history`/`get_server_logs` filter with `server_status` (per the devforum announcement's wording); the openapi spec only says "CEL filtering is supported on all fields". If Roblox actually expects `status`, the raw `filter` arg is the escape hatch. One live call with a real key settles it.
 - **No live Open Cloud calls made** for the two server-management tools (no key/published universe in the dev environment) — paths/params/schemas are pinned from the official spec, but a keyed smoke against a real universe is still owed.
 
+## ⛔ Removed in v0.16.0 — `capture_screenshot` (deliberate)
+It copied screen pixels at Studio's window position, so any window covering Studio
+ended up in the shot (it photographed the AI client in a live test). The official
+Studio MCP's `screen_capture` is a real viewport render. **Migration:**
+`capture_screenshot` → official `screen_capture`.
+
 ## ⛔ Removed in v0.14.0 — playtest surface (deliberate)
 `playtest` (start/stop/pause), `playtest_probe`, and `playtest_input` are **gone**,
 along with the plugin's `Playtest` handler and the `startPlaytest`/`stopPlaytest`/

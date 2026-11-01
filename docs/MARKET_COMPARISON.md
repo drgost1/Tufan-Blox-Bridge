@@ -24,7 +24,7 @@ competitor is ahead, it says so.
 
 | Capability | Tufan | Roblox built-in | rust-mcp (archived) | WEPPY | boshyxd | robloxstudio-mcp |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| AI tool control (MCP) | ✅ 86 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
+| AI tool control (MCP) | ✅ 85 | ✅ | ✅ 6 | ✅ | ✅ 43 | ✅ 51 |
 | Line-level script edit | ✅ | ⚠️ | — | — | ✅ | — |
 | Bulk create / duplicate / nested-tree | ✅ (+ create_tree) | — | — | — | ✅ | — |
 | Read-only / safe mode | ✅ (`TUFAN_READONLY=1`) | — | — | — | ✅ (Inspector, 31) | — |
