@@ -89,6 +89,9 @@ return function(register)
 		local s = args.startLine or 1
 		local e = args.endLine
 		if e == nil then e = s - 1 end -- pure insertion before startLine
+		if s > total + 1 then
+			error(string.format("startLine %d is past the end of %s (%d lines)", s, args.path, total))
+		end
 		if s < 1 then s = 1 end
 		if e > total then e = total end
 		if e < s - 1 then e = s - 1 end

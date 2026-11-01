@@ -87,6 +87,7 @@ const ROUTING_INSTRUCTIONS = [
   "- Play tests: official start_stop_play, character_navigation, user_keyboard_input, user_mouse_input.",
   "- Real-time debugging in a running game: official execute_luau with datamodel_type Client or Server, plus get_console_output. Tufan's get_recent_errors also streams live errors.",
   "- Everything else, use Tufan: editing scripts and instances, bulk builds (batch, create_tree, mass_edit), snapshot/restore, git, backdoor and performance scans, asset import, DataStore and production logs.",
+  "- Big jobs: Roblox allows the plugin about 500 HTTP requests a minute, roughly 240 Tufan calls. Prefer batch, create_tree and mass_edit over many single calls; past the limit calls wait instead of failing.",
   "If the official server isn't connected, tell the user instead of treating a Tufan result as proof of how the running game behaves.",
 ].join("\n");
 
@@ -99,11 +100,14 @@ const EDIT_COPY_TOOLS = new Set([
   ...[...WRITE_TOOLS].filter((name) => !/^git_|^meshy_|^blender_|^cloud_luau$|^generate_asset$|^pull_place$|^copy_script_across$|^import_file$/.test(name)),
   "get_tree", "get_descendants", "describe", "get_properties", "search_objects", "script_source",
   "scene_state", "pick", "objects_in_region", "project_health", "scan_perf",
+  "tag", "get_tagged", "get_attributes", "grep_scripts", "search_by_property", "scan_responsive",
+  "scan_backdoors", "find_duplicates", "get_services", "get_selection",
 ]);
 
 function withPlaySessionNote(handler: (...args: any[]) => Promise<any>) {
   return async (...args: any[]) => {
     const result = await handler(...args);
+    if (result?.isError) return result;
     const target = resolveTargetPlace(args[0]?.place);
     if (target.placeId !== undefined && isPlaying(target.placeId) && Array.isArray(result?.content)) {
       result.content.unshift({ type: "text", text: PLAY_SESSION_NOTE });

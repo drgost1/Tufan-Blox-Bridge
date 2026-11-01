@@ -19,7 +19,10 @@ foreach ($c in @((Join-Path $repoRoot 'tools\argon.exe'), 'argon', 'rojo')) {
 }
 if (-not $argon) { throw "No plugin builder found. Put argon.exe in tools/ (github.com/argon-rbx/argon/releases) or install rojo." }
 
+# Argon logs success to stderr, which PowerShell 5.1 turns into a terminating error under 'Stop'.
+$ErrorActionPreference = 'Continue'
 & $argon build $project --output $output 2>$null
+$ErrorActionPreference = 'Stop'
 if (-not (Test-Path $output)) { throw "build failed: $output not produced" }
 Write-Host "Built $output ($((Get-Item $output).Length) bytes)"
 

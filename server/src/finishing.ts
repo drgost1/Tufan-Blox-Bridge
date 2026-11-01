@@ -11,7 +11,6 @@
 
 import { lua, PRELUDE } from "./luauLiteral.js";
 import { resolveTargetPlace, dispatchTo } from "./bridge/sessions.js";
-import { bumpPlace } from "./bridge/cache.js";
 
 export interface FinishOptions {
   /** Anchor every BasePart (generate_asset default true; import_file opt-in). */
@@ -224,7 +223,6 @@ export async function finishModel(
     const data = r?.resultJson;
     if (!data) return { line: "(finishing returned no result)" };
     if (data.error) return { line: `(finishing failed: ${data.error})` };
-    bumpPlace(target.placeId!);
     // runLuau's encodeDeep serializes Luau arrays as {"1":...,"2":...} objects —
     // normalize before formatting (live-E2E finding).
     const arr = (v: any): any[] =>

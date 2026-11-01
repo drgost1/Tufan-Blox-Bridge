@@ -87,7 +87,7 @@ export function registerBlenderTools(server: McpServer) {
       if (r.ok && r.result && typeof r.result === "object" && r.result.error) {
         return errorText(String(r.result.error));
       }
-      // thumbnail → return the rendered PNG as an MCP image block (capture.ts pattern).
+      // thumbnail → return the rendered PNG as an MCP image block.
       if (action === "thumbnail" && r.ok && r.result?.thumbnail) {
         try {
           const png = await readFile(String(r.result.thumbnail));

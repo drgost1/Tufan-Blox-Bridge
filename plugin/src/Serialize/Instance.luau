@@ -117,12 +117,22 @@ function Serialize.resolve(path: string): (Instance?, string?)
 		end
 	end
 
-	for i = startIndex, #segments do
-		local child = findChild(current, segments[i])
+	-- A name can contain dots, so when a segment isn't found, try it joined with the next ones.
+	local i = startIndex
+	while i <= #segments do
+		local name = segments[i]
+		local last = i
+		local child = findChild(current, name)
+		while not child and last < #segments do
+			last += 1
+			name = name .. "." .. segments[last]
+			child = findChild(current, name)
+		end
 		if not child then
 			return nil, string.format("'%s' not found under '%s'", segments[i], current:GetFullName())
 		end
 		current = child
+		i = last + 1
 	end
 
 	return current, nil

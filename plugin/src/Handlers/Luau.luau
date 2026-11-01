@@ -29,13 +29,19 @@ return function(register)
 			ok, result = pcall(fn)
 			done = true
 		end)
-		coroutine.resume(co)
 		local deadline = os.clock() + budget
+		coroutine.resume(co)
 		while not done and os.clock() < deadline do
 			task.wait()
 		end
 
-		task.wait() -- let queued MessageOut events flush
+		-- MessageOut delivers prints up to two frames late. Only wait for them when
+		-- the code could have printed, so plain calls stay fast.
+		local code = args.code
+		local mayPrint = code:find("print", 1, true) or code:find("warn", 1, true) or code:find("require", 1, true)
+		for _ = 1, mayPrint and 3 or 1 do
+			task.wait()
+		end
 		conn:Disconnect()
 
 		if not done then

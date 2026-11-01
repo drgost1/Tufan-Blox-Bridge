@@ -40,7 +40,7 @@ competitor is ahead, it says so.
 | **Backdoor / security scanner** | ✅ | — | — | — | — | — |
 | List installed Studio plugins | ✅ | — | — | — | — | — |
 | **Multi-place** (cross-place copy, pull) | ✅ | — | — | Pro only | — | — |
-| OS-level screenshot → AI | ✅ (Win) | — | — | — | — | — |
+| OS-level screenshot → AI | ➖ official MCP | — | — | — | — | — |
 | Asset search / insert | ✅ | ✅ (insert_model) | ✅ | ✅ | ✅ | ✅ |
 | **AI 3D-asset generation** (text/image → lint/fix → upload → insert) | ✅ | ⚠️ mesh-gen only, no pipeline | — | — | — | — |
 | Headless Blender processing (decimate/split/fracture/convert) | ✅ | — | — | — | — | — |
@@ -116,7 +116,7 @@ favor of the built-in server. Listed for history only; don't start here.
 3. **Non-script instance mirroring is WIP** — models/parts don't yet round-trip
    to disk as files (a Roblox plugin-API limit). _(Same-named sibling scripts no
    longer collapse — disambiguated with ` (N)` suffixes since v0.1.2.)_
-4. **Screenshot is Windows-only**; macOS capture is unimplemented.
+4. **Screenshots and play tests are left to Roblox's official Studio MCP**, by design.
 5. **Fewer clients verified.** WEPPY explicitly lists Antigravity + Codex App +
    Gemini CLI etc.; Tufan documents Claude Code / Cursor primarily.
 

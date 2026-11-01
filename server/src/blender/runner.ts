@@ -1,4 +1,4 @@
-// Headless Blender subprocess runner. Mirrors the capture.ts execFile pattern:
+// Headless Blender subprocess runner, using the execFile pattern:
 // args ARRAY (never a shell string — "Program Files" spaces), windowsHide,
 // generous maxBuffer, hard timeout.
 //

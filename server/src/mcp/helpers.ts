@@ -2,19 +2,7 @@
 
 import { z } from "zod";
 import { dispatchTo, resolveTargetPlace } from "../bridge/sessions.js";
-import { cacheGet, cacheSet, bumpPlace } from "../bridge/cache.js";
 import { runtimeConfig } from "../config.js";
-
-// Internal ops that mutate the place. After any of these runs, the place's read
-// cache is cleared so the next get_descendants / get_tree reflects the change.
-const WRITE_OPS = new Set([
-  "createInstance", "deleteInstance", "cloneInstance", "moveInstance", "renameInstance",
-  "massCreate", "massDuplicate", "createTree", "undo", "redo",
-  "setProperty", "massSetProperty", "massEdit", "setAttribute", "massSetAttribute",
-  "setScriptSource", "editScriptLines", "findAndReplace",
-  "addTag", "removeTag", "runLuau", "insertAsset", "batch",
-  "patchScript", "snapshot", "restore", "deleteSnapshot", "makeResponsive",
-]);
 
 /** Optional target-place argument shared by every Studio tool. */
 export const placeArg = z
@@ -61,35 +49,7 @@ export async function runStudio(
   if (target.error) return errorText(target.error);
   try {
     const result = await dispatchTo(target.placeId!, op, args);
-    if (WRITE_OPS.has(op)) bumpPlace(target.placeId!);
     return text(format(result));
-  } catch (e) {
-    return errorText(`${op} failed: ${(e as Error).message}`);
-  }
-}
-
-/**
- * Like runStudio, but memoizes the formatted result per place for `ttlMs`. For
- * read-only tree dumps (get_descendants / get_tree): a repeat read is instant and
- * free; any write through the bridge clears the cache (see WRITE_OPS + bumpPlace).
- */
-export async function runStudioCached(
-  op: string,
-  args: Record<string, unknown>,
-  format: (result: any) => string,
-  place?: string | number,
-  ttlMs = 4000,
-): Promise<ToolText> {
-  const target = resolveTargetPlace(place);
-  if (target.error) return errorText(target.error);
-  const key = `${op}:${JSON.stringify(args)}`;
-  const hit = cacheGet(target.placeId!, key, ttlMs);
-  if (hit !== undefined) return text(hit);
-  try {
-    const result = await dispatchTo(target.placeId!, op, args);
-    const formatted = format(result);
-    cacheSet(target.placeId!, key, formatted);
-    return text(formatted);
   } catch (e) {
     return errorText(`${op} failed: ${(e as Error).message}`);
   }

@@ -25,6 +25,35 @@ local function getPlaceName(): string
 	return name
 end
 
+-- Roblox allows a plugin about 500 HTTP requests a minute. A dropped reply would
+-- leave the server waiting out its full command timeout, so keep trying until the
+-- budget refills.
+local REPLY_RETRY_SECONDS = 75
+
+-- JSONEncode rejects invalid UTF-8 and NaN/infinity. Replace just those values so
+-- the rest of a result still reaches the AI.
+local function sanitize(value, seen)
+	local kind = typeof(value)
+	if kind == "string" then
+		if utf8.len(value) then return value end
+		return (value:gsub("[\128-\255]", "?"))
+	elseif kind == "number" then
+		if value ~= value or value == math.huge or value == -math.huge then return tostring(value) end
+		return value
+	elseif kind == "table" then
+		seen = seen or {}
+		if seen[value] then return "<cycle>" end
+		seen[value] = true
+		local copy = {}
+		for key, item in pairs(value) do
+			copy[sanitize(key, seen)] = sanitize(item, seen)
+		end
+		seen[value] = nil
+		return copy
+	end
+	return value
+end
+
 local Poll = {}
 Poll.__index = Poll
 
@@ -94,6 +123,12 @@ function Poll:_handle(cmd)
 	local encodeOk, encoded = pcall(function()
 		return HttpService:JSONEncode(payload)
 	end)
+	if not encodeOk and ok then
+		payload.result = sanitize(result)
+		encodeOk, encoded = pcall(function()
+			return HttpService:JSONEncode(payload)
+		end)
+	end
 	if not encodeOk then
 		encoded = HttpService:JSONEncode({
 			sessionId = self.ctx.sessionId,
@@ -102,14 +137,19 @@ function Poll:_handle(cmd)
 			error = string.format("result of '%s' is not JSON-serializable", cmd.op),
 		})
 	end
-	pcall(function()
-		HttpService:RequestAsync({
-			Url = Config.serverUrl .. "/response",
-			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = encoded,
-		})
-	end)
+	local deadline = os.clock() + REPLY_RETRY_SECONDS
+	while self.running do
+		local sent = pcall(function()
+			HttpService:RequestAsync({
+				Url = Config.serverUrl .. "/response",
+				Method = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body = encoded,
+			})
+		end)
+		if sent or os.clock() > deadline then break end
+		task.wait(1)
+	end
 end
 
 function Poll:_loop()
@@ -122,8 +162,10 @@ function Poll:_loop()
 		end)
 
 		if not ok then
-			-- server unreachable
-			self:_setConnected(false)
+			-- Hitting the HTTP limit isn't a lost connection; only a real failure is.
+			if not string.find(tostring(response), "exceeded limit", 1, true) then
+				self:_setConnected(false)
+			end
 			task.wait(Config.retryDelaySeconds)
 		elseif response.StatusCode == 200 then
 			self:_setConnected(true)

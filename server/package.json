@@ -1,7 +1,7 @@
 {
   "name": "tufan-blox-bridge",
   "version": "0.16.0",
-  "description": "MCP server for Roblox Studio AI-driven development â€” scripts, instances, properties, Luau execution, two-way file sync, and git history.",
+  "description": "Roblox Studio MCP server and plugin: an add-on to Roblox's built-in Studio MCP with snapshots, two-way script sync, git, backdoor scanning, Luau linting and bulk builds for Claude Code, Cursor and any MCP client.",
   "type": "module",
   "bin": {
     "tufan-blox-bridge": "dist/index.js"
@@ -22,11 +22,22 @@
   },
   "keywords": [
     "roblox",
+    "roblox-studio",
+    "roblox-mcp",
+    "roblox-studio-mcp",
+    "roblox-plugin",
+    "roblox-studio-plugin",
     "mcp",
-    "studio",
-    "ai",
-    "luau",
+    "mcp-server",
     "model-context-protocol",
+    "luau",
+    "claude",
+    "claude-code",
+    "cursor",
+    "ai",
+    "ai-agent",
+    "game-development",
+    "backdoor-scanner",
     "tufan"
   ],
   "author": "Tufan Studio",

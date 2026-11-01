@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudioCached, placeArg } from "../helpers.js";
+import { runStudio, placeArg } from "../helpers.js";
 
 export function registerDescribeTools(server: McpServer) {
   server.registerTool(
@@ -10,11 +10,11 @@ export function registerDescribeTools(server: McpServer) {
         "Full context of one instance in a SINGLE call: identity, key properties, attributes, " +
         "tags, a class-bucketed child summary, attached scripts (with line counts), and world " +
         "bounds. Replaces the 5-6 round-trips (get_properties + get_children + get_attributes + " +
-        "get_tags + script grep) it used to take to understand a node. Cached.",
+        "get_tags + script grep) it used to take to understand a node.",
       inputSchema: { path: z.string(), place: placeArg },
     },
     async ({ path, place }) =>
-      runStudioCached(
+      runStudio(
         "describe",
         { path },
         (r) => {

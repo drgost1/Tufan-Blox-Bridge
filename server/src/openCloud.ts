@@ -11,7 +11,6 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, extname } from "node:path";
 import { text, errorText, type ToolText } from "./mcp/helpers.js";
 import { resolveTargetPlace, dispatchTo } from "./bridge/sessions.js";
-import { bumpPlace } from "./bridge/cache.js";
 import { finishModel, wantsFinishing, type FinishOptions } from "./finishing.js";
 
 export const OC_BASE = "https://apis.roblox.com/assets/v1";
@@ -132,7 +131,6 @@ export async function insertIntoPlace(
         assetId: Number(assetId),
         parentPath: parent,
       });
-      bumpPlace(target.placeId!);
       return { line: `inserted at ${r?.path ?? parent}`, insertedPath: r?.path };
     }
     // Audio/Decal/Animation: create the wrapper instance, then VERIFY the id
@@ -173,7 +171,6 @@ export async function insertIntoPlace(
       name: displayName,
       properties: { [w.prop]: contentId },
     });
-    bumpPlace(target.placeId!);
     const path = created?.path ?? parent;
     try {
       const check: any = await dispatchTo(target.placeId!, "getProperties", { path, names: [w.prop] });

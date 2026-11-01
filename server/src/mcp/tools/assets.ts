@@ -6,18 +6,26 @@ import { runStudio, placeArg, text, errorText } from "../helpers.js";
 // behind Studio's Toolbox. Search returns ids; a batch details call adds names.
 const CATEGORY: Record<string, number> = { Model: 10, Decal: 13, Audio: 3, Mesh: 40, Plugin: 38 };
 
-async function toolboxDetails(ids: number[]): Promise<Map<number, any>> {
+// Roblox removed the toolbox details endpoint; the public economy API still answers
+// per asset, without saying whether a model contains scripts.
+async function assetDetails(ids: number[]): Promise<Map<number, any>> {
   const out = new Map<number, any>();
-  if (!ids.length) return out;
-  const res = await fetch(`https://apis.roblox.com/toolbox-service/v1/items/details?assetIds=${ids.join(",")}`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!res.ok) return out;
-  const j: any = await res.json();
-  for (const d of j.data ?? []) {
-    const a = d.asset;
-    if (a?.id) out.set(a.id, { ...a, creator: d.creator });
-  }
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const res = await fetch(`https://economy.roblox.com/v2/assets/${id}/details`, { headers: { Accept: "application/json" } });
+        if (!res.ok) return;
+        const a: any = await res.json();
+        out.set(id, {
+          id, name: a.Name, description: a.Description, typeId: a.AssetTypeId,
+          creator: a.Creator?.Name, createdUtc: a.Created, updatedUtc: a.Updated,
+          isForSale: a.IsForSale, isPublicDomain: a.IsPublicDomain,
+        });
+      } catch {
+        /* one failed lookup shouldn't lose the rest of the search */
+      }
+    }),
+  );
   return out;
 }
 
@@ -25,7 +33,7 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_assets",
     {
-      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name, and flags assets that contain scripts (⚠ possible backdoor vector). Server-side. For instances already IN this place, use search_objects or search_by_property instead; for this place's own custom MaterialVariants, use search_materials.",
+      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name and creator.",
       inputSchema: {
         keyword: z.string(),
         assetType: z.enum(["Model", "Decal", "Audio", "Mesh", "Plugin"]).optional().describe("default Model"),
@@ -44,15 +52,17 @@ export function registerAssetTools(server: McpServer) {
         const sj: any = await sres.json();
         const ids: number[] = (sj.data ?? []).map((d: any) => d.id).filter(Boolean).slice(0, n);
         if (!ids.length) return text("(no results)");
-        const details = await toolboxDetails(ids);
+        const details = await assetDetails(ids);
         const lines = ids.map((id) => {
           const a = details.get(id);
           if (!a) return `${id}`;
-          const warn = a.hasScripts ? "  ⚠ contains scripts" : "";
-          const by = a.creator?.name ? ` — by ${a.creator.name}` : "";
-          return `${id}  ${a.name}${by}${warn}`;
+          const by = a.creator ? ` — by ${a.creator}` : "";
+          return `${id}  ${a.name}${by}`;
         });
-        return text(`${ids.length} result(s) for "${keyword}" (${assetType ?? "Model"}):\n` + lines.join("\n"));
+        return text(
+          `${ids.length} result(s) for "${keyword}" (${assetType ?? "Model"}):\n` + lines.join("\n") +
+            "\n\nRoblox no longer reports whether a model contains scripts here: run scan_backdoors after inserting a free model.",
+        );
       } catch (e) {
         return errorText(`search_assets failed: ${(e as Error).message}`);
       }
@@ -62,24 +72,15 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "get_asset_details",
     {
-      description: "Marketplace details for an asset id (name, creator, type, whether it contains scripts, mesh stats).",
+      description: "Marketplace details for an asset id: name, creator, type, description, dates. Doesn't say whether a model contains scripts; run scan_backdoors after inserting one.",
       inputSchema: { assetId: z.number() },
     },
     async ({ assetId }) => {
       try {
-        const details = await toolboxDetails([assetId]);
+        const details = await assetDetails([assetId]);
         const a = details.get(assetId);
         if (!a) return errorText(`No details for asset ${assetId} (may be rate-limited or invalid).`);
-        return text(
-          JSON.stringify(
-            {
-              id: a.id, name: a.name, type: a.assetType ?? a.typeId, description: a.description,
-              creator: a.creator?.name, hasScripts: a.hasScripts, createdUtc: a.createdUtc,
-              mesh: a.modelTechnicalDetails?.objectMeshSummary,
-            },
-            null, 2,
-          ),
-        );
+        return text(JSON.stringify(a, null, 2));
       } catch (e) {
         return errorText(`get_asset_details failed: ${(e as Error).message}`);
       }

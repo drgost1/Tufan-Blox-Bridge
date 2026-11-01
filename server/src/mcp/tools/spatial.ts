@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { text, errorText, placeArg } from "../helpers.js";
 import { resolveTargetPlace, dispatchTo } from "../../bridge/sessions.js";
-import { bumpPlace } from "../../bridge/cache.js";
 
 // Spatial-awareness layer. Surfaces the engine's projection / raycast / bounds
 // primitives so the AI can relate what it SEES (a screenshot) to world
@@ -369,7 +368,6 @@ return { placed = true, path = obj:GetFullName(), center = v3(pos), normal = v3(
       }
       if (!data) return errorText("place_on: no result from Studio");
       if (data.error) return errorText(`place_on: ${data.error}`);
-      if (!data.dryRun) bumpPlace(target.placeId!);
       if (data.dryRun) {
         return text(
           `dryRun — computed flush placement at center [${(data.center ?? []).join(", ")}], surface normal [${(data.normal ?? []).join(", ")}], half-extent ${data.halfExtent}${data.aligned ? ", aligned to surface" : ""}.\nRe-run without dryRun to apply.\n${JSON.stringify({ computedCFrame: data.computedCFrame }, null, 2)}`,

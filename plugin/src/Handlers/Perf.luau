@@ -10,13 +10,13 @@ local LOOP_CAP = 25 -- max busy-loop scripts to report
 local GAME_SERVICES = {
 	"Workspace", "ServerScriptService", "ServerStorage", "ReplicatedStorage", "ReplicatedFirst",
 	"StarterGui", "StarterPack", "StarterPlayer", "Lighting", "SoundService", "MaterialService",
-	"TextChatService", "Chat", "Teams", "LocalizationService",
+	"TextChatService", "Chat", "Teams", "LocalizationService", "TestService", "JointsService", "InsertService",
 }
 
 local function gameServices()
 	local services = {}
 	for _, name in ipairs(GAME_SERVICES) do
-		local service = game:FindFirstChild(name)
+		local service = game:FindService(name)
 		if service then
 			table.insert(services, service)
 		end

@@ -1,8 +1,10 @@
-# Tufan-Blox-Bridge
+# Tufan-Blox-Bridge: Roblox Studio MCP Server and Plugin
 
-**AI-driven development for Roblox Studio.** Connect Claude Code, Cursor, or any MCP client to Studio and let your AI *build, inspect, test, and version* your game — 85 tools, two-way file sync, opt-in per-place git, a backdoor scanner, AI 3D-asset generation (Meshy + headless Blender + Open Cloud), local-file import, subtree snapshots, perf + responsive audits, and concurrent multi-session support. One install. MIT. By **Tufan Studio**.
+[![npm version](https://img.shields.io/npm/v/tufan-blox-bridge)](https://www.npmjs.com/package/tufan-blox-bridge) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![GitHub release](https://img.shields.io/github/v/release/drgost1/Tufan-Blox-Bridge)](https://github.com/drgost1/Tufan-Blox-Bridge/releases/latest)
 
-> Unlike Rojo (file sync only) or other MCP plugins (AI control only), Tufan-Blox-Bridge does **AI control + two-way sync + git + security + asset generation + safe-mode** in a single tool — across one or more open places at once.
+**A free Roblox Studio MCP server and plugin that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and let your AI build, audit and version your game: 85 tools for Luau scripts, instances and properties, plus two-way file sync, git history, snapshots, a backdoor scanner, Luau linting and AI 3D-asset generation.
+
+Keep the built-in server for play tests and screenshots. Add Tufan for everything around them.
 
 ---
 
@@ -53,7 +55,40 @@ That's it. Your AI can now drive Studio, your scripts mirror to disk, and `scan_
 
 ---
 
-## What it is
+## Why add Tufan when Roblox Studio already has an MCP server?
+
+Roblox's built-in Studio MCP is excellent at **running and seeing** your game. Tufan is the add-on for **building it safely, keeping it versioned and keeping it clean**. Install both: they cover different jobs, and Tufan tells your AI which one to use.
+
+| You want to... | Built-in Studio MCP | Tufan add-on |
+|---|---|---|
+| Play test with a real character, keyboard and mouse | ✅ Use this | ➖ Left to the built-in |
+| Take a screenshot of the viewport | ✅ Use this | ➖ Left to the built-in |
+| Debug inside a running game | ✅ Use this | ➖ Warns the AI and points it there |
+| Generate meshes, materials and scenes with Roblox AI | ✅ Use this | ➖ Has its own Meshy + Blender route |
+| Checkpoint a subtree and restore it after a bad AI edit | ➖ | ✅ `snapshot` / `restore` |
+| Keep scripts on disk with two-way sync | ➖ | ✅ Automatic mirror |
+| Commit, diff and recover deleted scripts with git | ➖ | ✅ 12 `git_*` tools |
+| Scan free models for backdoors | ➖ | ✅ `scan_backdoors` |
+| Lint, type-check and format Luau | ➖ | ✅ Selene, luau-lsp, StyLua |
+| Scan a place for performance and responsive UI problems | MicroProfiler analysis | ✅ `scan_perf`, `scan_responsive`, `project_health` |
+| Build many objects in one call | By writing Luau yourself | ✅ Ready-made `batch`, `create_tree`, `mass_edit` |
+| Read and edit live DataStores | ➖ | ✅ `datastore` (Open Cloud) |
+| Upload local files | Images | ✅ `import_file`: models, audio, images (Open Cloud) |
+| Keep notes on your project between AI sessions | Skills | ✅ `project_context`, per place |
+| Let an AI explore with zero risk of changes | ➖ | ✅ `TUFAN_READONLY=1` |
+
+### Six reasons to install it as an add-on
+
+1. **AI edits become reversible.** Snapshots, git history and `git_recover` give you a way back that outlives Studio's undo stack.
+2. **It's quick on every call.** In our benchmark, running the same Luau took 17 ms through Tufan and 67 ms through the built-in server (median of 25 calls, measured November 2026 on one Windows PC; your numbers will vary). Roblox allows a plugin about 500 HTTP requests a minute, roughly 240 Tufan calls, so big jobs should use `batch`; past that, calls wait rather than fail.
+3. **Free models stop being a blind risk.** `scan_backdoors` checks scripts, attributes and values for hidden `require` payloads, obfuscation and webhooks.
+4. **Your code lives where your tools do.** Scripts mirror to disk, so VS Code, Selene, luau-lsp and git all work on real files.
+5. **Big builds stay manageable.** Thousands of changes go through in a single call, without your AI writing and debugging a Luau script for each job.
+6. **The two servers cooperate.** Tufan tells your AI at connect to use the built-in server for screenshots, play tests and live debugging, and it flags any result that used the edit copy while a Play session is running.
+
+Comparison based on each server's published tool list as of November 2026. Roblox updates its server often, so check its tool list for changes.
+
+## How the Roblox Studio plugin and MCP server fit together
 
 Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
@@ -88,7 +123,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / official `screen_capture` still watch it live, with `is_running` telling you edit mode from a live sim.
 - 🗺 **Multi-place** — `list_places`, `pull_place`, and `copy_script_across` to move a module straight from one open place into another.
 
-## Tools (83)
+## Roblox Studio MCP tools (85)
 
 | Group | Tools |
 |---|---|
@@ -99,7 +134,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Tags** | `tag` · `get_tagged` |
 | **Selection** | `get_selection` · `set_selection` |
 | **Luau / Batch** | `run_luau` · `batch` |
-| **Logs** | `get_output_log` · `get_recent_errors` |
+| **Logs** | `get_output_log` · `get_recent_errors` · `get_server_logs` · `get_server_history` |
 | **Snapshots** | `snapshot` · `restore` · `list_snapshots` · `delete_snapshot` |
 | **Responsive UI** | `make_responsive` · `scan_responsive` |
 | **Audits** | `project_health` · `scan_perf` |
@@ -112,7 +147,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Security** | `scan_backdoors` · `list_studio_plugins` |
 | **HTTP** | `http_get` |
 | **Multi-place** | `list_places` · `pull_place` · `copy_script_across` |
-| **Meta** | `ping` · `is_running` |
+| **Meta** | `ping` · `is_running` · `project_context` |
 
 In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden (including `generate_asset`, `meshy_generate` — spends money —, `blender_run` — native host execution — and `cloud_luau` — runs code in production) and the mixed read/write tools (`script_source`, `tag`, `git_branch`, `git_remote`, `format_scripts`) stay visible with their write paths blocked (`datastore`'s write actions are also gated) — 50 inspection tools remain. With `TUFAN_TOOLSET=core` only the 27 everyday tools are exposed; both gates compose.
 
@@ -121,6 +156,7 @@ In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden (including 
 - **Auto-mirror on connect** — opening a published place pulls its script tree to `<project>/projects/<Experience>_<universeId>/<Place>_<placeId>/`.
 - **Two-way sync** — file edits push to Studio; Studio edits write to disk. A loop-guard prevents echo.
 - **Git (opt-in)** — enable it in the widget; each place folder becomes its own repo. Off by default = plain files, no `.git`. A re-pull auto-snapshots first, so it never overwrites uncommitted work. `git_recover` brings back a deleted file from history.
+- **HTTP limit** — Roblox allows a plugin about 500 HTTP requests a minute, roughly 240 Tufan calls. Past that, calls wait for the budget to refill (up to about a minute) rather than fail, so use `batch`, `create_tree` or `mass_edit` for big jobs.
 - **Concurrent sessions** — the first server owns port 58741 + the plugin; others run as proxies that forward to it. The owner serializes every command through one plugin queue, so multiple sessions never collide. If the owner closes, a proxy promotes automatically.
 - **Disconnect lock** — when the plugin goes offline the mirror is set read-only (copy-only) until it reconnects.
 
@@ -163,6 +199,29 @@ plugin/   Luau Studio plugin (built to TufanBloxBridge.rbxm)
 scripts/  build-plugin.ps1
 docs/     launch notes, market comparison
 ```
+
+## FAQ
+
+**What is Tufan-Blox-Bridge?**
+A free, open-source Roblox Studio MCP server and Studio plugin. It lets AI coding tools such as Claude Code and Cursor edit scripts, build instances, audit and back up your game inside Roblox Studio.
+
+**Does it replace Roblox's built-in Studio MCP?**
+No. It's an add-on. Keep the built-in server for play tests, screenshots and live debugging, and use Tufan for editing, safety, versioning and audits.
+
+**Does it work without the built-in server?**
+Yes, for everything that happens in edit mode. You won't have screenshots or play testing, because Tufan leaves those to the built-in server.
+
+**Which AI clients does it work with?**
+Any MCP client over stdio, including Claude Code, Claude Desktop and Cursor.
+
+**Do I need the Studio plugin as well as the npm package?**
+Yes. The npm package is the MCP server your AI talks to, and the plugin carries out the commands inside Studio. The one-line installer sets up both.
+
+**Is it free?**
+Yes, MIT licensed. Only the optional Meshy AI features need a paid Meshy plan, and you bring your own keys.
+
+**Is it safe to use on a real game?**
+You choose how much it can do. Read-only mode hides every write tool, snapshots protect risky edits, and tools that touch your published game ask for a separate Open Cloud key. Your keys stay on your machine.
 
 ## License
 

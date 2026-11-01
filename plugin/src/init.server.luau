@@ -31,7 +31,7 @@ if not RunService:IsEdit() then
 		task.spawn(function()
 			local warned = false
 			while true do
-				local ok, err = pcall(function()
+				local ok, response = pcall(function()
 					return Http:RequestAsync({
 						Url = serverUrl .. "/play-heartbeat",
 						Method = "POST",
@@ -39,9 +39,10 @@ if not RunService:IsEdit() then
 						Body = Http:JSONEncode({ placeId = game.PlaceId }),
 					})
 				end)
-				if not ok and not warned then
+				if (not ok or not response.Success) and not warned then
 					warned = true
-					warn("[TufanBloxBridge] couldn't report the Play session to the server: " .. tostring(err))
+					local reason = ok and ("HTTP " .. tostring(response.StatusCode)) or tostring(response)
+					warn("[TufanBloxBridge] couldn't report the Play session to the server (restart your AI client if it's on an older version): " .. reason)
 				end
 				task.wait(3)
 			end

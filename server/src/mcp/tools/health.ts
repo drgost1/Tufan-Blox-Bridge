@@ -6,7 +6,7 @@ export function registerHealthTools(server: McpServer) {
     "project_health",
     {
       description:
-        "One-look census of the whole place: instance / script / part counts, total Luau size, " +
+        "One-look census of the game (installed plugins and Studio UI excluded): instance / script / part counts, total Luau size, " +
         "particle + light counts, a per-service descendant breakdown, tag count, and StreamingEnabled. " +
         "The fast 'what is this game?' overview before diving in. Read-only.",
       inputSchema: { place: placeArg },

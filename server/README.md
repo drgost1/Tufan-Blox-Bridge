@@ -1,10 +1,21 @@
-# tufan-blox-bridge
+# tufan-blox-bridge: Roblox Studio MCP server and plugin
 
-MCP server for AI-driven Roblox Studio development, by Tufan Studio.
+**A free Roblox Studio MCP server that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and get 85 tools for Luau scripts, instances, properties, batch builds, snapshots, performance and security audits, two-way file sync and git history.
 
-Connect Claude Code / Cursor and get 85 tools to drive Studio: read/write scripts, create & edit instances, get/set properties (full round-trip incl. particle curves and gradients), inspect the tree, run Luau, batch ops, subtree snapshots, perf/responsive/security audits, read logs, insert assets — plus two-way file sync (files↔Studio for code) and per-place git history (commit/log/diff/restore/branch).
+It pairs with the **Tufan-Blox-Bridge Studio plugin**, which carries out the commands inside Studio. The server speaks MCP over stdio to your AI client and runs an HTTP bridge on `127.0.0.1:58741` that the plugin polls.
 
-Pairs with the **Tufan-Blox-Bridge Studio plugin**, which executes the commands inside Studio. The server speaks MCP over stdio to your AI client and runs an HTTP bridge on `127.0.0.1:58741` that the plugin polls.
+## Why use it as an add-on
+
+Keep Roblox's built-in server for play tests, screenshots and live debugging. Add Tufan for what it doesn't cover:
+
+- **Reversible AI edits:** `snapshot` / `restore` and git history, including `git_recover` for deleted scripts.
+- **Scripts on disk:** two-way sync, so VS Code, Selene, luau-lsp and git work on real files.
+- **Backdoor scanning:** `scan_backdoors` checks free models for hidden `require` payloads, obfuscation and webhooks.
+- **Code quality:** Selene linting, luau-lsp type checks and StyLua formatting.
+- **Bulk builds:** thousands of changes in one call with `batch`, `create_tree` and `mass_edit`.
+- **Speed:** 17 ms median per Luau call against 67 ms for the built-in server in our benchmark (November 2026, one Windows PC; your numbers will vary).
+- **Game operations:** live DataStores, `cloud_luau` and asset uploads through Open Cloud.
+- **Teamwork with the built-in server:** Tufan tells your AI which server owns which job, and flags results that missed a running Play session.
 
 ## Use
 
