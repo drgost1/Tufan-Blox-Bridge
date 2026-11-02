@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.drgost1/tufan-blox-bridge",
+  "title": "Tufan-Blox-Bridge",
+  "description": "Roblox Studio MCP server and plugin: 85 tools, snapshots, git, two-way sync, backdoor scanner.",
+  "websiteUrl": "https://www.tufanstudio.net/roblox-studio-mcp",
+  "repository": {
+    "url": "https://github.com/drgost1/Tufan-Blox-Bridge",
+    "source": "github",
+    "subfolder": "server"
+  },
+  "version": "0.16.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "tufan-blox-bridge",
+      "version": "0.16.2",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "TUFAN_PROJECT",
+          "description": "Project root for script sync and git. Defaults to the working directory.",
+          "format": "string",
+          "isRequired": false
+        },
+        {
+          "name": "TUFAN_OPENCLOUD_KEY",
+          "description": "Optional Open Cloud API key for DataStores, cloud Luau, server logs and uploads.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "TUFAN_MESHY_KEY",
+          "description": "Optional Meshy AI API key for AI 3D-asset generation.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

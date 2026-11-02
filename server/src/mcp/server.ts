@@ -117,7 +117,7 @@ function withPlaySessionNote(handler: (...args: any[]) => Promise<any>) {
 }
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.16.1" }, { instructions: ROUTING_INSTRUCTIONS });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "0.16.2" }, { instructions: ROUTING_INSTRUCTIONS });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)

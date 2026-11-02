@@ -2,6 +2,10 @@
 
 **A free Roblox Studio MCP server that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and get 85 tools for Luau scripts, instances, properties, batch builds, snapshots, performance and security audits, two-way file sync and git history.
 
+**[Website and overview](https://www.tufanstudio.net/roblox-studio-mcp)** · **[GitHub](https://github.com/drgost1/Tufan-Blox-Bridge)**
+
+![Roblox Studio with the Tufan-Blox-Bridge MCP plugin panel open beside a place](https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/docs/images/studio-plugin.jpg)
+
 It pairs with the **Tufan-Blox-Bridge Studio plugin**, which carries out the commands inside Studio. The server speaks MCP over stdio to your AI client and runs an HTTP bridge on `127.0.0.1:58741` that the plugin polls.
 
 ## Why use it as an add-on

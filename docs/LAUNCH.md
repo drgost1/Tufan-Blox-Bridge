@@ -28,14 +28,12 @@ Open a place → its scripts auto-mirror to a local folder. Edit a file → Stud
 
 ### Install
 ```
-# 1. plugin + server, one line (Windows PowerShell):
-iwr https://raw.githubusercontent.com/drgost1/Tufan-Blox-Bridge/main/install.ps1 | iex
-# macOS/Linux: curl -fsSL .../install.sh | bash
-
-# 2. point your AI client at it (forward slashes!):
-claude mcp add tufan --env TUFAN_PROJECT=C:/path/to/project -- npx -y tufan-blox-bridge
+npx -y tufan-blox-bridge@latest setup
 ```
-Restart Studio + your AI client. Free + open-source (MIT): https://github.com/drgost1/Tufan-Blox-Bridge
+Run it in your Roblox project folder, then restart Studio + your AI client. Free + open-source (MIT).
+
+- Website: https://www.tufanstudio.net/roblox-studio-mcp
+- GitHub: https://github.com/drgost1/Tufan-Blox-Bridge
 
 ### Honest about what's WIP
 - Script sync, AI tools, git, and the scanner are solid and tested.
@@ -47,8 +45,6 @@ Built by **Tufan Studio**. Feedback + PRs welcome — tell me what tools you wan
 ---
 
 ## Posting checklist
-- [ ] Publish server to npm (`npm publish`) so the `npx` line works
-- [ ] Tag a GitHub release with `TufanBloxBridge.rbxm` attached
 - [ ] Record a 20s GIF of `scan_backdoors` catching something (the hook)
 - [ ] Post to DevForum #Community-Resources, then cross-post: r/robloxgamedev, X #RobloxDev
 - [ ] Custom 32×32 toolbar icon before posting (currently blank)

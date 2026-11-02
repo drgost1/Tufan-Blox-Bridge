@@ -6,9 +6,13 @@
 
 Keep the built-in server for play tests and screenshots. Add Tufan for everything around them.
 
+**[Website and overview](https://www.tufanstudio.net/roblox-studio-mcp)** · **[npm](https://www.npmjs.com/package/tufan-blox-bridge)** · **[Latest release](https://github.com/drgost1/Tufan-Blox-Bridge/releases/latest)**
+
+![Roblox Studio with the Tufan-Blox-Bridge MCP plugin panel open beside a place](docs/images/studio-plugin.jpg)
+
 ---
 
-## Quick install
+## Quick install: connect Claude Code or Cursor to Roblox Studio
 
 You need [Node.js 18 or newer](https://nodejs.org).
 
@@ -122,7 +126,7 @@ Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
 The AI calls a tool → the server queues a command → the plugin's long-poll picks it up → executes in Studio → returns the result. The server also handles file sync and git on your machine.
 
-## Features
+## Roblox Studio AI features
 
 - 🛠 **Full Studio control** — 85 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
 - 🔄 **Two-way file sync** — open a place and its script tree mirrors to disk; edit a file → Studio updates, edit in Studio → the file updates.
@@ -225,7 +229,7 @@ scripts/  build-plugin.ps1
 docs/     launch notes, market comparison
 ```
 
-## FAQ
+## Roblox MCP FAQ
 
 **What is Tufan-Blox-Bridge?**
 A free, open-source Roblox Studio MCP server and Studio plugin. It lets AI coding tools such as Claude Code and Cursor edit scripts, build instances, audit and back up your game inside Roblox Studio.
