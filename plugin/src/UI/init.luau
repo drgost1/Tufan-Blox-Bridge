@@ -9,6 +9,12 @@ local Config = require(script.Parent.Net.Config)
 
 local UI = {}
 
+local DEFAULT_WIDTH = 380
+local STACK_BELOW_WIDTH = 320 -- docked panes ignore the widget's minimum width; below this, rows stack
+local GUTTER = 6
+local GAP = 4
+local ACTION_HEIGHT = 21
+
 local function color(theme, name)
 	local ok, c = pcall(function() return theme:GetColor(Enum.StudioStyleGuideColor[name]) end)
 	return ok and c or Color3.new(1, 1, 1)
@@ -24,7 +30,7 @@ function UI.start(plugin, ctx)
 
 	local widget = plugin:CreateDockWidgetPluginGui(
 		"tufan_blox_bridge_widget",
-		DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, 380, 440, 340, 320)
+		DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, false, false, DEFAULT_WIDTH, 440, 340, 320)
 	)
 	widget.Title = "Tufan-Blox-Bridge"
 	widget.Name = "TufanBloxBridge"
@@ -74,8 +80,6 @@ function UI.start(plugin, ctx)
 
 	-- ── Activity feed (defined early so handlers can log) ───────────────────
 	local scroll = Instance.new("ScrollingFrame")
-	scroll.Size = UDim2.new(1, 0, 1, -170)
-	scroll.Position = UDim2.fromOffset(0, 170)
 	scroll.BackgroundColor3 = color(theme, "MainBackground")
 	scroll.BorderSizePixel = 0
 	scroll.ScrollBarThickness = 6
@@ -155,11 +159,15 @@ function UI.start(plugin, ctx)
 
 	-- Git-gated controls dim + stop responding when git is off.
 	local gated = {}
+	local whiteLabeled = {} -- white text fades into a dimmed fill, so these switch to the theme's text color
 	local function refreshGating()
 		for _, btn in ipairs(gated) do
 			btn.AutoButtonColor = state.gitEnabled
 			btn.BackgroundTransparency = state.gitEnabled and 0 or 0.6
 			btn.TextTransparency = state.gitEnabled and 0 or 0.45
+			if whiteLabeled[btn] then
+				btn.TextColor3 = state.gitEnabled and Color3.new(1, 1, 1) or color(theme, "MainText")
+			end
 		end
 	end
 
@@ -177,6 +185,7 @@ function UI.start(plugin, ctx)
 	master.BorderSizePixel = 0
 	master.Font = Enum.Font.GothamBold
 	master.TextSize = 12
+	master.TextTruncate = Enum.TextTruncate.AtEnd
 	master.Parent = masterRow
 	Instance.new("UICorner", master).CornerRadius = UDim.new(0, 4)
 	local function renderMaster()
@@ -203,13 +212,14 @@ function UI.start(plugin, ctx)
 	gitBar.BorderSizePixel = 0
 	gitBar.Parent = widget
 
-	local function makeToggle(label, key, x)
+	local function makeToggle(label, key, position)
 		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.fromOffset(160, 20)
-		btn.Position = UDim2.fromOffset(x, 3)
+		btn.Size = UDim2.new(0.5, -(GUTTER + GAP / 2), 0, 20)
+		btn.Position = position
 		btn.BorderSizePixel = 0
 		btn.Font = Enum.Font.GothamMedium
 		btn.TextSize = 11
+		btn.TextTruncate = Enum.TextTruncate.AtEnd
 		btn.Parent = gitBar
 		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
 		local function render()
@@ -231,34 +241,29 @@ function UI.start(plugin, ctx)
 		table.insert(gated, btn)
 		return btn
 	end
-	makeToggle("Auto-commit", "autoCommit", 8)
-	makeToggle("Auto-push", "autoPush", 176)
+	makeToggle("Auto-commit", "autoCommit", UDim2.fromOffset(GUTTER, 3))
+	makeToggle("Auto-push", "autoPush", UDim2.new(0.5, GAP / 2, 0, 3))
 
 	-- ── Action buttons (row 3) ──────────────────────────────────────────────
 	local actions = Instance.new("Frame")
-	actions.Size = UDim2.new(1, 0, 0, 26)
 	actions.Position = UDim2.fromOffset(0, 108)
 	actions.BackgroundColor3 = color(theme, "Titlebar")
 	actions.BorderSizePixel = 0
 	actions.Parent = widget
-	local aLayout = Instance.new("UIListLayout", actions)
-	aLayout.FillDirection = Enum.FillDirection.Horizontal
-	aLayout.Padding = UDim.new(0, 4)
-	aLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	local aPad = Instance.new("UIPadding", actions)
-	aPad.PaddingLeft = UDim.new(0, 6)
 
-	local function makeAction(label, bg, fn, isGated)
+	local actionButtons = {}
+	local function makeAction(label, bg, fn, isGated, labelColor)
 		local b = Instance.new("TextButton")
-		b.Size = UDim2.fromOffset(82, 21)
 		b.BackgroundColor3 = bg
-		b.TextColor3 = Color3.new(1, 1, 1)
+		b.TextColor3 = labelColor or Color3.new(1, 1, 1)
 		b.Font = Enum.Font.GothamMedium
 		b.TextSize = 11
+		b.TextTruncate = Enum.TextTruncate.AtEnd
 		b.Text = label
 		b.BorderSizePixel = 0
 		b.Parent = actions
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+		table.insert(actionButtons, b)
 		b.Activated:Connect(function()
 			if isGated and not state.gitEnabled then
 				api.pushActivity("enable Git first (master toggle above)")
@@ -266,28 +271,29 @@ function UI.start(plugin, ctx)
 			end
 			fn()
 		end)
-		if isGated then table.insert(gated, b) end
+		if isGated then
+			table.insert(gated, b)
+			whiteLabeled[b] = true
+		end
 		return b
 	end
 	makeAction("Commit now", Color3.fromRGB(52, 120, 246), function() postAction("/git/commit", {}, "commit") end, true)
 	makeAction("Push now", Color3.fromRGB(88, 86, 214), function() postAction("/git/push", {}, "push") end, true)
 	makeAction("Backup", Color3.fromRGB(52, 199, 89), function() postAction("/git/backup", {}, "backup") end, true)
-	makeAction("Re-pull", color(theme, "Button"), function() postAction("/git/repull", {}, "re-pull") end, false) -- sync, not git
+	makeAction("Re-pull", color(theme, "Button"), function() postAction("/git/repull", {}, "re-pull") end, false, color(theme, "ButtonText")) -- sync, not git
 
 	-- ── GitHub setup (row 4) ────────────────────────────────────────────────
 	local ghRow = Instance.new("Frame")
-	ghRow.Size = UDim2.new(1, 0, 0, 32)
-	ghRow.Position = UDim2.fromOffset(0, 134)
 	ghRow.BackgroundColor3 = color(theme, "Titlebar")
 	ghRow.BorderSizePixel = 0
 	ghRow.Parent = widget
 
 	local urlBox = Instance.new("TextBox")
-	urlBox.Size = UDim2.new(1, -104, 0, 22)
-	urlBox.Position = UDim2.fromOffset(6, 5)
-	urlBox.PlaceholderText = "github repo URL (https://github.com/you/repo.git)"
+	urlBox.Position = UDim2.fromOffset(GUTTER, 5)
+	urlBox.PlaceholderText = "https://github.com/you/repo.git"
 	urlBox.Text = ""
 	urlBox.ClearTextOnFocus = false
+	urlBox.ClipsDescendants = true
 	urlBox.Font = Enum.Font.Code
 	urlBox.TextSize = 11
 	urlBox.TextXAlignment = Enum.TextXAlignment.Left
@@ -301,8 +307,6 @@ function UI.start(plugin, ctx)
 	uPad.PaddingLeft = UDim.new(0, 6)
 
 	local ghBtn = Instance.new("TextButton")
-	ghBtn.Size = UDim2.fromOffset(90, 22)
-	ghBtn.Position = UDim2.new(1, -96, 0, 5)
 	ghBtn.Text = "Setup GitHub"
 	ghBtn.Font = Enum.Font.GothamMedium
 	ghBtn.TextSize = 11
@@ -324,6 +328,52 @@ function UI.start(plugin, ctx)
 		postAction("/git/remote", { url = url }, "setup github")
 	end)
 	table.insert(gated, ghBtn)
+	whiteLabeled[ghBtn] = true
+
+	-- ── Responsive layout ───────────────────────────────────────────────────
+	-- The widget measures 0 wide while hidden or during Play; lay out for the default
+	-- width then, and the size change on reopening lays it out for real.
+	local function applyLayout()
+		local width = widget.AbsoluteSize.X
+		if width <= 0 then width = DEFAULT_WIDTH end
+		local isNarrow = width < STACK_BELOW_WIDTH
+
+		local columns = isNarrow and 2 or #actionButtons
+		local rows = math.ceil(#actionButtons / columns)
+		local columnPitch = (width - GUTTER * 2 + GAP) / columns
+		for index, b in ipairs(actionButtons) do
+			local column = (index - 1) % columns
+			local row = math.floor((index - 1) / columns)
+			local left = math.round(column * columnPitch)
+			local right = math.round((column + 1) * columnPitch) - GAP
+			b.Size = UDim2.fromOffset(right - left, ACTION_HEIGHT)
+			b.Position = UDim2.fromOffset(GUTTER + left, 3 + row * (ACTION_HEIGHT + GAP))
+		end
+		local actionsHeight = 3 + rows * ACTION_HEIGHT + (rows - 1) * GAP + 2
+		actions.Size = UDim2.new(1, 0, 0, actionsHeight)
+
+		local ghHeight
+		if isNarrow then
+			urlBox.Size = UDim2.new(1, -GUTTER * 2, 0, 22)
+			ghBtn.Size = UDim2.new(1, -GUTTER * 2, 0, 22)
+			ghBtn.Position = UDim2.fromOffset(GUTTER, 31)
+			ghHeight = 58
+		else
+			urlBox.Size = UDim2.new(1, -106, 0, 22)
+			ghBtn.Size = UDim2.fromOffset(90, 22)
+			ghBtn.Position = UDim2.new(1, -96, 0, 5)
+			ghHeight = 32
+		end
+		local ghTop = actions.Position.Y.Offset + actionsHeight
+		ghRow.Position = UDim2.fromOffset(0, ghTop)
+		ghRow.Size = UDim2.new(1, 0, 0, ghHeight)
+
+		local feedTop = ghTop + ghHeight + GAP
+		scroll.Position = UDim2.fromOffset(0, feedTop)
+		scroll.Size = UDim2.new(1, 0, 1, -feedTop)
+	end
+	widget:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout)
+	applyLayout()
 
 	renderMaster()
 	refreshGating()
