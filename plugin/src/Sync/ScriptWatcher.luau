@@ -21,10 +21,26 @@ ScriptWatcher.__index = ScriptWatcher
 
 local DEBOUNCE = 0.3 -- source-edit coalesce
 local RECONCILE_DEBOUNCE = 0.25 -- coalesce a burst of structural events
-local RECONCILE_INTERVAL = 20 -- periodic safety-net sweep (seconds). Event signals
+local RECONCILE_INTERVAL = 60 -- periodic safety-net sweep (seconds). Event signals
 -- (DescendantAdded/Removing + per-script Name/Ancestry) drive instant reconciles;
 -- this only catches the rare no-signal case (e.g. renaming a Folder of scripts),
 -- so it can be infrequent — keeps idle CPU low on large places.
+local COLLECT_YIELD_EVERY = 4000 -- instances walked per frame during a reconcile.
+-- A full walk of a 120k-instance place took ~260 ms in one go, which froze Studio
+-- (edit AND a running playtest, same process) every time a part was added or moved.
+-- Spreading it over frames keeps each slice to a few ms.
+
+-- Does this instance hold script source, itself or anywhere below it? Adding or
+-- removing a plain part can't change the script set, so it shouldn't cost a walk.
+local function touchesScripts(inst: Instance): boolean
+	if inst:IsA("LuaSourceContainer") then
+		return true
+	end
+	local ok, found = pcall(function()
+		return inst:FindFirstChildWhichIsA("LuaSourceContainer", true)
+	end)
+	return not ok or found ~= nil
+end
 
 function ScriptWatcher.new(sessionId, activity)
 	return setmetatable({
@@ -74,12 +90,19 @@ end
 -- ---- reconcile (structural: add/delete/rename/reparent) ----------------------
 
 -- Snapshot every script's current unique path -> instance.
+-- Yields every COLLECT_YIELD_EVERY instances, so the snapshot can be a few frames
+-- stale; any change made meanwhile fires its own signal and reconciles again.
 function ScriptWatcher:_collect()
 	local map = {}
+	local visited = 0
 	-- single O(n) pass instead of uniquePath() per script (~O(n²) on wide trees)
 	Serialize.forEachDescendantPath(game, function(d, path)
 		if d:IsA("LuaSourceContainer") then
 			map[path] = d
+		end
+		visited += 1
+		if visited % COLLECT_YIELD_EVERY == 0 then
+			task.wait()
 		end
 	end)
 	return map
@@ -99,6 +122,25 @@ function ScriptWatcher:_reconcile()
 	if not self.started then
 		return
 	end
+	-- _collect yields, so a second reconcile can be asked for mid-walk. Run them
+	-- one at a time: the one in flight repeats once it finishes.
+	if self.reconciling then
+		self.reconcileAgain = true
+		return
+	end
+	self.reconciling = true
+	repeat
+		self.reconcileAgain = false
+		-- pcall so one bad walk can't leave `reconciling` stuck and stop all syncing
+		local ok, err = pcall(self._reconcileOnce, self)
+		if not ok then
+			warn("[TufanBloxBridge] script reconcile failed: " .. tostring(err))
+		end
+	until not self.reconcileAgain or not self.started
+	self.reconciling = false
+end
+
+function ScriptWatcher:_reconcileOnce()
 	local current = self:_collect()
 
 	-- safety valve: never treat a totally-empty read as "every script was
@@ -241,8 +283,11 @@ function ScriptWatcher:start()
 				self:_watch(d)
 			end
 			-- a pasted/dragged-in subtree may carry scripts at any depth; reconcile
-			-- re-walks the tree so they all get picked up regardless
-			self:_scheduleReconcile()
+			-- re-walks the tree so they all get picked up regardless. A burst already
+			-- headed for a reconcile keeps it debounced without re-checking each part.
+			if self.reconcileTimer or touchesScripts(d) then
+				self:_scheduleReconcile()
+			end
 		end)
 	)
 	table.insert(
@@ -253,7 +298,9 @@ function ScriptWatcher:start()
 			end
 			-- d (and any scripts under it) are about to leave the tree; the
 			-- debounced reconcile runs after they're gone and emits the removes
-			self:_scheduleReconcile()
+			if self.reconcileTimer or touchesScripts(d) then
+				self:_scheduleReconcile()
+			end
 		end)
 	)
 
