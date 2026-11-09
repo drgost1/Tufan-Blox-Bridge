@@ -11,7 +11,7 @@ export function registerInstanceTools(server: McpServer) {
         className: z.string(),
         parentPath: z.string(),
         name: z.string().optional(),
-        properties: z.record(z.any()).optional().describe("name -> value (primitive or {Vector3:[x,y,z]} etc.)"),
+        properties: z.record(z.string(), z.any()).optional().describe("name -> value (primitive or {Vector3:[x,y,z]} etc.)"),
         place: placeArg,
       },
     },

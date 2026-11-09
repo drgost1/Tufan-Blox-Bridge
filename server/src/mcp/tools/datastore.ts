@@ -113,7 +113,7 @@ export function registerDataStoreTools(server: McpServer) {
         limit: z.number().optional().describe("max results per page"),
         allScopes: z.boolean().optional().describe("list keys across all scopes (list_keys) — mutually exclusive with scope"),
         userIds: z.array(z.number()).optional().describe("associated user ids to tag on the entry (set)"),
-        attributes: z.record(z.any()).optional().describe("entry metadata (set)"),
+        attributes: z.record(z.string(), z.any()).optional().describe("entry metadata (set)"),
         matchVersion: z.string().optional().describe("only write if the current version matches (set)"),
         exclusiveCreate: z.boolean().optional().describe("only create if the key doesn't exist yet (set)"),
         confirm: z

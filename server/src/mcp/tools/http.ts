@@ -13,7 +13,7 @@ export function registerHttpTools(server: McpServer) {
         "Fetch a URL (GET) and return the response body as text. For grabbing docs, JSON APIs, or reference data while working. Body is capped at ~100 KB; 15s timeout.",
       inputSchema: {
         url: z.string().describe("absolute http(s) URL"),
-        headers: z.record(z.string()).optional().describe("optional request headers"),
+        headers: z.record(z.string(), z.string()).optional().describe("optional request headers"),
       },
     },
     async ({ url, headers }) => {

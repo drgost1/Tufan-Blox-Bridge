@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "server"
   },
-  "version": "0.16.2",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "tufan-blox-bridge",
-      "version": "0.16.2",
+      "version": "1.0.0",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         {

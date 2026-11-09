@@ -49,7 +49,7 @@ export function registerBatchTools(server: McpServer) {
           .array(
             z.object({
               op: z.string().describe("a supported op name, e.g. create_instance"),
-              args: z.record(z.any()).optional().describe("that op's args (no `place`)"),
+              args: z.record(z.string(), z.any()).optional().describe("that op's args (no `place`)"),
             }),
           )
           .describe("ordered list of operations"),
