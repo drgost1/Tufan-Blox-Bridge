@@ -96,6 +96,7 @@ Roblox's built-in Studio MCP is excellent at **running and seeing** your game. T
 | Generate meshes, materials and scenes with Roblox AI | ✅ Use this | ➖ Has its own Meshy + Blender route |
 | Checkpoint a subtree and restore it after a bad AI edit | ➖ | ✅ `snapshot` / `restore` |
 | Keep scripts on disk with two-way sync | ➖ | ✅ Automatic mirror |
+| Get back a GUI or model that a delete or Ctrl+Z wiped | ➖ | ✅ `.rbxm` mirror with history, `restore_from_mirror` |
 | Commit, diff and recover deleted scripts with git | ➖ | ✅ 12 `git_*` tools |
 | Scan free models for backdoors | ➖ | ✅ `scan_backdoors` |
 | Lint, type-check and format Luau | ➖ | ✅ Selene, luau-lsp, StyLua |
@@ -147,7 +148,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - 🧭 **Spatial awareness** — the AI relates what it *sees* to coordinates: `scene_state` grounds a screenshot (every visible object's world **and** on-screen pixel coords via projection), `pick` raycasts a screen point → world hit + surface normal (identify / trace), `place_on` computes and applies a *flush* placement (bounding-box offset, optional align-to-surface + grid snap), `objects_in_region` queries an area.
 - 👥 **Concurrent multi-session** — run several Claude/Cursor sessions on the same Studio at once; one owns the plugin, the rest proxy through it, all commands serialized → no collisions.
 - 🧠 **Per-project AI memory** — `project_context` is a persistent markdown blob per place that the AI reads at session start (architecture, gotchas, false-bug traps) and updates as it learns — fewer tokens wasted re-discovering the project, fewer wrong conclusions.
-- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides the 36 write tools; mixed tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay readable with writes blocked. Zero-risk AI exploration.
+- 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides the 37 write tools; mixed tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay readable with writes blocked. Zero-risk AI exploration.
 - 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the 26 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
 - 👁 **Seeing the game — by design, not ours** — screenshots come from the official Studio MCP's `screen_capture`, a real viewport render even when Studio is behind other windows. The server tells the AI this at connect, and flags any Tufan call that misses a running Play session. `get_asset_thumbnail` shows any catalog asset.
 - ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / official `screen_capture` still watch it live, with `is_running` telling you edit mode from a live sim.
@@ -180,7 +181,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Multi-place** | `list_places` · `pull_place` · `copy_script_across` |
 | **Meta** | `ping` · `is_running` · `project_context` |
 
-In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden (including `generate_asset`, `meshy_generate` — spends money —, `blender_run` — native host execution — and `cloud_luau` — runs code in production) and the mixed read/write tools (`script_source`, `tag`, `git_branch`, `git_remote`, `format_scripts`) stay visible with their write paths blocked (`datastore`'s write actions are also gated) — 50 inspection tools remain. With `TUFAN_TOOLSET=core` only the 27 everyday tools are exposed; both gates compose.
+In read-only mode (`TUFAN_READONLY=1`) the 37 write tools are hidden (including `generate_asset`, `meshy_generate` — spends money —, `blender_run` — native host execution — and `cloud_luau` — runs code in production) and the mixed read/write tools (`script_source`, `tag`, `git_branch`, `git_remote`, `format_scripts`) stay visible with their write paths blocked (`datastore`'s write actions are also gated) — 51 inspection tools remain. With `TUFAN_TOOLSET=core` only the 29 everyday tools are exposed; both gates compose.
 
 ## How it works
 
