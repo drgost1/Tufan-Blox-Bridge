@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/tufan-blox-bridge)](https://www.npmjs.com/package/tufan-blox-bridge) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![GitHub release](https://img.shields.io/github/v/release/drgost1/Tufan-Blox-Bridge)](https://github.com/drgost1/Tufan-Blox-Bridge/releases/latest)
 
-**A free Roblox Studio MCP server and plugin that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and let your AI build, audit and version your game: 85 tools for Luau scripts, instances and properties, plus two-way file sync, git history, snapshots, a backdoor scanner, Luau linting and AI 3D-asset generation.
+**A free Roblox Studio MCP server and plugin that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and let your AI build, audit and version your game: 87 tools for Luau scripts, instances and properties, plus two-way file sync, git history, snapshots, a backdoor scanner, Luau linting and AI 3D-asset generation.
 
 Keep the built-in server for play tests and screenshots. Add Tufan for everything around them.
 
@@ -121,18 +121,19 @@ Comparison based on each server's published tool list as of November 2026. Roblo
 
 Two parts over a local HTTP bridge (`127.0.0.1:58741`):
 
-- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 85 tools.
+- **MCP server** (`npx -y tufan-blox-bridge`) — what your AI client connects to. Exposes the 87 tools.
 - **Studio plugin** (`TufanBloxBridge.rbxm`) — the in-Studio agent that executes commands and mirrors your scripts.
 
 The AI calls a tool → the server queues a command → the plugin's long-poll picks it up → executes in Studio → returns the result. The server also handles file sync and git on your machine.
 
 ## Roblox Studio AI features
 
-- 🛠 **Full Studio control** — 85 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
+- 🛠 **Full Studio control** — 87 tools: scripts (line-level edits + atomic multi-hunk `patch_script`), instances (incl. whole-tree creation in one call), properties/attributes with full round-trip serialization (particle curves, gradients, fonts, springs), tags, tree inspection (`describe` = an instance's entire context in one call), Luau execution, output logs + a live error feed.
 - 🔄 **Two-way file sync** — open a place and its script tree mirrors to disk; edit a file → Studio updates, edit in Studio → the file updates.
 - 🌿 **Opt-in per-place git** — off by default (no `.git`, no headache). Turn it on in the widget and each place becomes its own repo with Commit / Push / Backup / Setup-GitHub buttons + auto-commit/push toggles. Your choice persists across restarts.
 - 🛡 **Backdoor scanner** — `scan_backdoors` finds require-of-Value, loadstring+HttpGet, exploit APIs, Discord webhooks, obfuscation, and hidden binary payloads; `list_studio_plugins` surfaces the remote-code-plugin vector.
 - ⏪ **Snapshots** — `snapshot` checkpoints any subtree before risky changes; `restore` brings it back exactly. A real undo that survives across the AI boundary.
+- 🛟 **Instance mirror + history** — GUIs, folders and models are saved to disk as `.rbxm` seconds after a change, with frozen copies whenever something is deleted or undone. `restore_from_mirror` brings back any instance by path, even one a Ctrl+Z wiped.
 - ⚡ **Batch ops** — `batch` runs dozens of mixed operations in one round-trip and one undo entry; 40 creates = 1 call, not 40.
 - 📱 **Responsive UI engine** — `make_responsive` converts a UI subtree Offset→Scale with a validated formula (skips draggables, `dryRun` previews); `scan_responsive` audits tree **and** scripts for resolution breakage and sub-44px tap targets.
 - 🩺 **One-look audits** — `project_health` (full place census in one traversal), `scan_perf` (ranked frame-killer fix list), `find_duplicates` (copy-pasted script clusters).
@@ -152,7 +153,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / official `screen_capture` still watch it live, with `is_running` telling you edit mode from a live sim.
 - 🗺 **Multi-place** — `list_places`, `pull_place`, and `copy_script_across` to move a module straight from one open place into another.
 
-## Roblox Studio MCP tools (85)
+## Roblox Studio MCP tools (87)
 
 | Group | Tools |
 |---|---|
@@ -165,6 +166,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 | **Luau / Batch** | `run_luau` · `batch` |
 | **Logs** | `get_output_log` · `get_recent_errors` · `get_server_logs` · `get_server_history` |
 | **Snapshots** | `snapshot` · `restore` · `list_snapshots` · `delete_snapshot` |
+| **Instance mirror** | `mirror_history` · `restore_from_mirror` |
 | **Responsive UI** | `make_responsive` · `scan_responsive` |
 | **Audits** | `project_health` · `scan_perf` |
 | **Code quality** | `format_scripts` · `lint_scripts` · `typecheck` · `export_sourcemap` |
@@ -183,7 +185,9 @@ In read-only mode (`TUFAN_READONLY=1`) the 36 write tools are hidden (including 
 ## How it works
 
 - **Auto-mirror on connect** — opening a published place pulls its script tree to `<project>/projects/<Experience>_<universeId>/<Place>_<placeId>/`.
-- **Two-way sync** — file edits push to Studio; Studio edits write to disk. A loop-guard prevents echo.
+- **Two-way sync** — file edits push to Studio; Studio edits write to disk. A loop-guard prevents echo, and a file only flows to Studio when its content really changed.
+- **Instance mirror** — every direct child of StarterGui, ReplicatedStorage, ServerStorage, StarterPack and Lighting is saved as `<Service>/<Name>.rbxm` next to the scripts (whole subtree, scripts included, via SerializationService). Changes are debounced (2 s) and batched into one request, and nothing is sent unless the bytes changed; StarterGui is watched per property, the rest by structure changes plus a 90 s sweep.
+- **History** — before a mirror file is deleted or overwritten, a copy goes to `.history/<timestamp>/` (always when an instance is removed, when a unit loses descendants, and at most every 5 min for plain edits; scripts too). Copies older than 30 days are pruned on connect. `mirror_history` lists them; `restore_from_mirror` puts one instance back (whole unit or anything inside it), trying the live file first and then older copies.
 - **Git (opt-in)** — enable it in the widget; each place folder becomes its own repo. Off by default = plain files, no `.git`. A re-pull auto-snapshots first, so it never overwrites uncommitted work. `git_recover` brings back a deleted file from history.
 - **HTTP limit** — Roblox allows a plugin about 500 HTTP requests a minute, roughly 240 Tufan calls. Past that, calls wait for the budget to refill (up to about a minute) rather than fail, so use `batch`, `create_tree` or `mass_edit` for big jobs.
 - **Concurrent sessions** — the first server owns port 58741 + the plugin; others run as proxies that forward to it. The owner serializes every command through one plugin queue, so multiple sessions never collide. If the owner closes, a proxy promotes automatically.

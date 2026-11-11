@@ -39,6 +39,8 @@ local function findChild(parent: Instance, segment: string): Instance?
 	return parent:FindFirstChild(segment)
 end
 
+Serialize.findChild = findChild
+
 -- GetFullName-style path with " (N)" disambiguators for duplicate siblings.
 function Serialize.uniquePath(inst: Instance): string
 	local segs = {}

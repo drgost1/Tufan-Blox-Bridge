@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.drgost1/tufan-blox-bridge",
   "title": "Tufan-Blox-Bridge",
-  "description": "Roblox Studio MCP server and plugin: 85 tools, snapshots, git, two-way sync, backdoor scanner.",
+  "description": "Roblox Studio MCP server and plugin: 87 tools, snapshots, instance mirror with history, git, two-way sync, backdoor scanner.",
   "websiteUrl": "https://www.tufanstudio.net/roblox-studio-mcp",
   "repository": {
     "url": "https://github.com/drgost1/Tufan-Blox-Bridge",

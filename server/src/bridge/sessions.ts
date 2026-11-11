@@ -261,7 +261,10 @@ export function startHeartbeat(
       // plugin VM is single-threaded, so it can't poll mid-op. That's "busy",
       // not "dead". Treat pending work as alive to avoid a false disconnect
       // ("No Studio place is connected") during a long mass-edit / run_luau.
-      const alive = now - s.lastSeen < staleMs || s.pending.size > 0;
+      // A held long-poll (a waiter) is a live plugin too: the hold is 25 s and
+      // staleMs is 15 s, so without this every idle poll flipped the place to
+      // "disconnected" and back (locking, unlocking and re-pulling the mirror).
+      const alive = now - s.lastSeen < staleMs || s.pending.size > 0 || s.waiters.length > 0;
       if (s.connected && !alive) {
         s.connected = false;
         s.disconnectedAt = now;

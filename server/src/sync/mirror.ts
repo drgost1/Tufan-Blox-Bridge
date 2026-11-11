@@ -7,7 +7,8 @@
 
 import { writeFileSync, mkdirSync, existsSync, rmSync, readdirSync, rmdirSync } from "node:fs";
 import { join, dirname, relative, resolve, sep } from "node:path";
-import { markServerWrite } from "./loopguard.js";
+import { markServerWrite, rememberContent, forgetContent } from "./loopguard.js";
+import { preserve, ensureWritable } from "./history.js";
 
 // Windows caps paths at 260 chars unless prefixed with \\?\ (and using
 // backslashes). Deep Studio trees blow past that, so we prefix fs writes.
@@ -54,9 +55,12 @@ export function writeMirrorScript(
 ): string {
   const p = mirrorFilePath(projectRoot, studioPath, className, hasChildren);
   markServerWrite(p); // loop guard keys on the clean path the watcher reports
+  preserve(projectRoot, relative(projectRoot, p), studioPath, "script", "pull", source);
+  ensureWritable(p);
   const lp = longPath(p);
   mkdirSync(dirname(lp), { recursive: true });
   writeFileSync(lp, source, "utf8");
+  rememberContent(p, source);
   return p;
 }
 
@@ -72,9 +76,12 @@ export function writeMirrorScriptLive(
   const leafPath = mirrorFilePath(projectRoot, studioPath, className, false);
   const target = existsSync(longPath(initPath)) ? initPath : leafPath;
   markServerWrite(target);
+  preserve(projectRoot, relative(projectRoot, target), studioPath, "script", "edit", source);
+  ensureWritable(target);
   const lp = longPath(target);
   mkdirSync(dirname(lp), { recursive: true });
   writeFileSync(lp, source, "utf8");
+  rememberContent(target, source);
   return target;
 }
 
@@ -140,6 +147,9 @@ export function removeMirrorScript(projectRoot: string, studioPath: string): str
       const lp = longPath(c);
       if (existsSync(lp)) {
         markServerWrite(c); // suppress the chokidar unlink echo back into Studio
+        preserve(projectRoot, relative(projectRoot, c), studioPath, "script", "removed");
+        ensureWritable(c);
+        forgetContent(c);
         try {
           rmSync(lp, { force: true });
           removed.push(relative(projectRoot, c));
@@ -172,6 +182,7 @@ export function studioPathFromMirror(
 ): { studioPath: string; className: string } | null {
   const rel = relative(projectRoot, absPath);
   if (rel.startsWith("..")) return null;
+  if (rel.split(sep).some((seg) => seg.startsWith("."))) return null; // .history / .git copies are not live scripts
   const match = CLASS_BY_EXT.find((c) => absPath.endsWith(c.suffix));
   if (!match) return null;
   const parts = rel.split(sep);

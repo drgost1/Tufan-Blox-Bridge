@@ -16,6 +16,7 @@ import { startBridge } from "./bridge/http.js";
 import { setOnSessionConnect, startHeartbeat, experienceMirrorRoot } from "./bridge/sessions.js";
 import { startWatcherForSession, startMirrorWatcher, stopMirrorWatcher } from "./sync/watcher.js";
 import { resolveExperienceName } from "./sync/experience.js";
+import { maintainHistory } from "./sync/history.js";
 import { pullPlace } from "./sync/pull.js";
 import { lockProject } from "./sync/lock.js";
 import { ensureGitRepo, baselineCommitIfEmpty, ensureMirrorIgnored } from "./git/git.js";
@@ -74,6 +75,7 @@ async function main() {
             await ensureGitRepo(session.mirrorRoot); // per-place repo
           }
           await pullPlace(session); // unlocks + dumps the script tree locally (no git needed)
+          maintainHistory(session.mirrorRoot); // prune old frozen copies, keep .history out of git
           if (runtimeConfig.gitEnabled) {
             await baselineCommitIfEmpty(session.mirrorRoot); // never leave the mirror at 0 commits
           }

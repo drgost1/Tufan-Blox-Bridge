@@ -3,6 +3,7 @@
 
 import express from "express";
 import { applyStudioChange, applyStudioSync, type WriterOptions } from "../sync/writer.js";
+import { applyInstanceSync } from "../sync/instanceMirror.js";
 import {
   isPlaying,
   notePlayHeartbeat,
@@ -114,6 +115,23 @@ export function startBridge(writerOpts: WriterOptions) {
     }
     const r = applyStudioSync(session, { removes, upserts }, writerOpts);
     res.json({ ok: true, removed: r.removed, written: r.written });
+  });
+
+  // Instance mirror: .rbxm uploads from the plugin's InstanceWatcher (GUIs,
+  // folders, models under the tracked services) + removals + the manifest.
+  app.post("/studio-instances", (req, res) => {
+    const { sessionId, ...body } = req.body ?? {};
+    let session = sessionId ? getSession(sessionId) : undefined;
+    if (!session) {
+      const all = listSessions();
+      if (all.length === 1) session = all[0];
+    }
+    if (!session) {
+      res.json({ ok: false, error: "unknown session" });
+      return;
+    }
+    // mirrorRoot is set a moment after connect; ok:false makes the plugin retry
+    res.json(applyInstanceSync(session, body));
   });
 
   // Git toggle switches from the plugin widget.

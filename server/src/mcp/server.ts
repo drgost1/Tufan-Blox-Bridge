@@ -17,6 +17,7 @@ import { registerBatchTools } from "./tools/batch.js";
 import { registerPerfTools } from "./tools/perf.js";
 import { registerDescribeTools } from "./tools/describe.js";
 import { registerSnapshotTools } from "./tools/snapshots.js";
+import { registerMirrorTools } from "./tools/mirror.js";
 import { registerResponsiveTools } from "./tools/responsive.js";
 import { registerHealthTools } from "./tools/health.js";
 import { registerImportTools } from "./tools/importing.js";
@@ -43,7 +44,7 @@ const WRITE_TOOLS = new Set([
   "set_property", "mass_edit", "set_attribute", "mass_set_attribute",
   "edit_script_lines", "find_and_replace_in_scripts",
   "set_selection", "run_luau", "insert_asset", "batch",
-  "patch_script", "snapshot", "restore", "delete_snapshot", "make_responsive",
+  "patch_script", "snapshot", "restore", "delete_snapshot", "make_responsive", "restore_from_mirror",
   "git_commit", "git_push", "git_pull", "git_restore", "git_revert", "git_recover",
   // cross-place / mirror writers — also mutate state, so gate them too:
   // copy_script_across upserts a script into a destination place, pull_place
@@ -75,7 +76,7 @@ const CORE_TOOLS = new Set([
   "get_server_logs", "get_server_history", "project_context",
   "set_property", "mass_edit", "batch", "create_instance", "create_tree", "delete_instance",
   "patch_script", "run_luau", "project_health",
-  "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore",
+  "scan_perf", "scan_responsive", "make_responsive", "snapshot", "restore", "restore_from_mirror", "mirror_history",
   "scene_state", "pick",
 ]);
 
@@ -184,6 +185,7 @@ export function createServer(): McpServer {
   registerPerfTools(server);
   registerDescribeTools(server);
   registerSnapshotTools(server);
+  registerMirrorTools(server);
   registerResponsiveTools(server);
   registerHealthTools(server);
   registerImportTools(server);

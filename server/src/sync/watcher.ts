@@ -5,7 +5,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import { readFileSync } from "node:fs";
 import type { Session } from "../bridge/sessions.js";
 import { classFromFilename } from "./project.js";
-import { wasJustWrittenByServer } from "./loopguard.js";
+import { wasJustWrittenByServer, sameAsRemembered, rememberContent } from "./loopguard.js";
 import { dispatchTo } from "../bridge/sessions.js";
 import { log } from "../util/log.js";
 
@@ -82,6 +82,8 @@ export function startMirrorWatcher(session: Session) {
 
   const w = chokidar.watch(session.mirrorRoot, {
     ignoreInitial: true,
+    // .history (frozen copies) and .git must never flow back into Studio
+    ignored: (p: string) => /[\\/]\.(history|git)([\\/]|$)/.test(p),
     awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
   });
 
@@ -95,6 +97,8 @@ export function startMirrorWatcher(session: Session) {
     } catch {
       return;
     }
+    if (sameAsRemembered(absPath, source)) return; // attribute flip (lock/unlock), not an edit
+    rememberContent(absPath, source);
     log(`[${session.placeName}] mirror file -> studio: ${m.studioPath}`);
     void dispatchTo(session.placeId, "applyFileChange", {
       studioPath: m.studioPath,

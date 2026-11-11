@@ -38,6 +38,7 @@ local function build(ctx)
 	load("Perf", script.Perf)
 	load("Describe", script.Describe)
 	load("Snapshot", script.Snapshot)
+	load("MirrorRestore", script.MirrorRestore)
 	load("Responsive", script.Responsive)
 	load("Apply", script.Parent.Sync.Apply)
 
