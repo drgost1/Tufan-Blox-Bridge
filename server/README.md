@@ -1,6 +1,6 @@
 # tufan-blox-bridge: Roblox Studio MCP server and plugin
 
-**A free Roblox Studio MCP server that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and get 85 tools for Luau scripts, instances, properties, batch builds, snapshots, performance and security audits, two-way file sync and git history.
+**A free Roblox Studio MCP server that works as an add-on to Roblox's built-in Studio MCP.** Connect Claude Code, Cursor or any MCP client to Roblox Studio and get 87 tools for Luau scripts, instances, properties, batch builds, snapshots, performance and security audits, two-way file sync, a disk backup of your GUIs and models with history, and git history.
 
 **[Website and overview](https://www.tufanstudio.net/roblox-studio-mcp)** · **[GitHub](https://github.com/drgost1/Tufan-Blox-Bridge)**
 
@@ -14,6 +14,7 @@ Keep Roblox's built-in server for play tests, screenshots and live debugging. Ad
 
 - **Reversible AI edits:** `snapshot` / `restore` and git history, including `git_recover` for deleted scripts.
 - **Scripts on disk:** two-way sync, so VS Code, Selene, luau-lsp and git work on real files.
+- **GUIs and models backed up:** every child of StarterGui, ReplicatedStorage, ServerStorage, StarterPack and Lighting is saved as `.rbxm` seconds after a change, with frozen copies in `.history/` whenever something is deleted or undone. `restore_from_mirror` brings back any instance by path, even one a Ctrl+Z wiped.
 - **Backdoor scanning:** `scan_backdoors` checks free models for hidden `require` payloads, obfuscation and webhooks.
 - **Code quality:** Selene linting, luau-lsp type checks and StyLua formatting.
 - **Bulk builds:** thousands of changes in one call with `batch`, `create_tree` and `mass_edit`.
@@ -46,7 +47,7 @@ Then restart Roblox Studio and your AI client. The Studio plugin ships inside th
 
 - `TUFAN_PROJECT` — the Roblox project root (for file sync + git). Defaults to cwd.
 - `TUFAN_READONLY=1` — inspector mode: write tools hidden, `script_source`/`tag` readable but write-blocked.
-- `TUFAN_TOOLSET=core` — expose only the 26 everyday core tools (default `full` = all 85).
+- `TUFAN_TOOLSET=core` — expose only the 29 everyday core tools (default `full` = all 87).
 - `TUFAN_AUTOCOMMIT=1` — auto-commit every in-Studio script edit.
 - `TUFAN_AUTOPUSH=1` — also push after each commit.
 - `TUFAN_PROJECTS_DIR` — base dir override for auto-registered projects.
