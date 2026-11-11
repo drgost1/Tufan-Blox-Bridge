@@ -1,6 +1,6 @@
 {
   "name": "tufan-blox-bridge",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "mcpName": "io.github.drgost1/tufan-blox-bridge",
   "description": "Roblox Studio MCP server and plugin: an add-on to Roblox's built-in Studio MCP with snapshots, two-way script sync, git, backdoor scanning, Luau linting and bulk builds for Claude Code, Cursor and any MCP client.",
   "type": "module",
