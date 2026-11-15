@@ -8,6 +8,8 @@ Keep the built-in server for play tests and screenshots. Add Tufan for everythin
 
 **[Website and overview](https://www.tufanstudio.net/roblox-studio-mcp)** · **[npm](https://www.npmjs.com/package/tufan-blox-bridge)** · **[Latest release](https://github.com/drgost1/Tufan-Blox-Bridge/releases/latest)**
 
+Guides: **[Setup for Claude Code, Codex, Cursor, Antigravity, Gemini CLI and VS Code](https://www.tufanstudio.net/roblox-studio-mcp/setup)** · **[Roblox Studio MCP not working?](https://www.tufanstudio.net/roblox-studio-mcp/not-working)** · **[Best Roblox Studio MCP servers compared](https://www.tufanstudio.net/roblox-studio-mcp/best-servers)**
+
 ![Roblox Studio with the Tufan-Blox-Bridge MCP plugin panel open beside a place](docs/images/studio-plugin.jpg)
 
 ---
@@ -149,7 +151,7 @@ The AI calls a tool → the server queues a command → the plugin's long-poll p
 - 👥 **Concurrent multi-session** — run several Claude/Cursor sessions on the same Studio at once; one owns the plugin, the rest proxy through it, all commands serialized → no collisions.
 - 🧠 **Per-project AI memory** — `project_context` is a persistent markdown blob per place that the AI reads at session start (architecture, gotchas, false-bug traps) and updates as it learns — fewer tokens wasted re-discovering the project, fewer wrong conclusions.
 - 🔒 **Read-only / safe mode** — `TUFAN_READONLY=1` hides the 37 write tools; mixed tools (`script_source`, `tag`, `git_branch`, `git_remote`) stay readable with writes blocked. Zero-risk AI exploration.
-- 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the 26 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
+- 🎚 **Lean core toolset** — `TUFAN_TOOLSET=core` exposes only the 29 everyday tools (the power suites stay one env-var away) for smaller tool menus and sharper AI focus.
 - 👁 **Seeing the game — by design, not ours** — screenshots come from the official Studio MCP's `screen_capture`, a real viewport render even when Studio is behind other windows. The server tells the AI this at connect, and flags any Tufan call that misses a running Play session. `get_asset_thumbnail` shows any catalog asset.
 - ▶️ **Playtest — by design, not ours** — starting, driving and probing a play session belongs to **Roblox's official Studio MCP** (real Play Solo with a character, keyboard/mouse input, character navigation). Tufan deliberately doesn't duplicate it: run the session there, and Tufan's `get_output_log` / `get_recent_errors` / official `screen_capture` still watch it live, with `is_running` telling you edit mode from a live sim.
 - 🗺 **Multi-place** — `list_places`, `pull_place`, and `copy_script_across` to move a module straight from one open place into another.
@@ -200,7 +202,7 @@ In read-only mode (`TUFAN_READONLY=1`) the 37 write tools are hidden (including 
 |---|---|
 | `TUFAN_PROJECT` | Project root for sync/git (use forward slashes). Defaults to cwd. |
 | `TUFAN_READONLY=1` | Safe/inspector mode — write tools hidden, `script_source`/`tag` readable but write-blocked. |
-| `TUFAN_TOOLSET=core` | Lean mode — expose only the 26 everyday core tools (default `full` = all 85). |
+| `TUFAN_TOOLSET=core` | Lean mode — expose only the 29 everyday core tools (default `full` = all 87). |
 | `TUFAN_AUTOCOMMIT=1` | Auto-commit each Studio→file edit (also toggle-able in the widget). |
 | `TUFAN_AUTOPUSH=1` | Also push after each commit. |
 | `TUFAN_PROJECTS_DIR` | Base dir override for auto-registered projects. |
