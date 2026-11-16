@@ -1,19 +1,18 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg, requireWritable, errorText } from "../helpers.js";
+import { runStudio, placeArg, pathArg, requireWritable, errorText } from "../helpers.js";
 
 export function registerTagTools(server: McpServer) {
   server.registerTool(
     "tag",
     {
       description:
-        "Read or change CollectionService tags on the instance at path. action='get' lists its tags; " +
-        "'add'/'remove' need `tag`. (Replaces get_tags + add_tag + remove_tag.) To find ALL instances " +
-        "carrying a tag, use get_tagged instead.",
+        "Read, add or remove CollectionService tags on one instance. get is read-only; add and remove change the instance and are blocked in read-only mode. " +
+        "Tags are how scripts find groups of objects (CollectionService:GetTagged). To list every instance with a tag, use get_tagged.",
       inputSchema: {
-        path: z.string(),
-        action: z.enum(["get", "add", "remove"]).describe("get = list this instance's tags; add/remove need `tag`"),
-        tag: z.string().optional().describe("required for add/remove"),
+        path: pathArg("Instance whose tags to read or change"),
+        action: z.enum(["get", "add", "remove"]).describe('"get" lists the instance\'s tags; "add" and "remove" change one tag and need tag.'),
+        tag: z.string().optional().describe('Tag name for add or remove, e.g. "Collectible". Ignored for get.'),
         place: placeArg,
       },
     },
@@ -32,10 +31,12 @@ export function registerTagTools(server: McpServer) {
   server.registerTool(
     "get_tagged",
     {
-      description: "All instances carrying a CollectionService tag, optionally filtered to a className (IsA).",
+      description:
+        "List the paths of every instance in the place that carries a CollectionService tag. Read-only. " +
+        "Use it to check what a tag-driven script will act on. For one instance's tags use tag with action get.",
       inputSchema: {
-        tag: z.string(),
-        className: z.string().optional().describe("only return instances that IsA this class, e.g. 'BasePart'"),
+        tag: z.string().describe('Tag name, exactly as set, e.g. "Collectible".'),
+        className: z.string().optional().describe('Only return instances of this class or a subclass, e.g. "BasePart".'),
         place: placeArg,
       },
     },

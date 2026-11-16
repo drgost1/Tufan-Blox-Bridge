@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg } from "../helpers.js";
+import { runStudio, placeArg, pathArg } from "../helpers.js";
 
 export function registerResponsiveTools(server: McpServer) {
   server.registerTool(
@@ -17,8 +17,8 @@ export function registerResponsiveTools(server: McpServer) {
         "Flags: aspectRatio (add UIAspectRatioConstraint at current aspect, skips layout-managed kids), " +
         "minSize (UISizeConstraint 44×44 on buttons).",
       inputSchema: {
-        path: z.string(),
-        mode: z.enum(["scale", "offset", "fit", "uiscale"]).optional().describe("default scale"),
+        path: pathArg('Root of the UI to convert, e.g. "StarterGui.HUD.Panel"'),
+        mode: z.enum(["scale", "offset", "fit", "uiscale"]).optional().describe("Conversion mode (see the description). Default scale."),
         dryRun: z.boolean().optional().describe("preview without writing (do this first)"),
         aspectRatio: z.boolean().optional().describe("add UIAspectRatioConstraint at current aspect"),
         minSize: z.boolean().optional().describe("add 44×44 UISizeConstraint to buttons"),
@@ -51,8 +51,9 @@ export function registerResponsiveTools(server: McpServer) {
         "Audit a UI subtree for what breaks on other resolutions — across the tree AND the scripts. " +
         "Flags Offset-locked Position/Size/CanvasSize/CellSize/CellPadding/Padding/CornerRadius, sub-44 " +
         "tap targets, and runtime pixel-positioning in code. Recognizes intentional draggable/resizable " +
-        "elements (tagged) and instead checks their drag logic (clamps to viewport?). Read-only.",
-      inputSchema: { path: z.string(), place: placeArg },
+        "elements (tagged) and instead checks their drag logic (clamps to viewport?). Read-only. " +
+        "Run it before make_responsive to see what needs fixing, and again after to confirm.",
+      inputSchema: { path: pathArg('Root of the UI to audit, e.g. "StarterGui.HUD"'), place: placeArg },
     },
     async ({ path, place }) =>
       runStudio("scanResponsive", { path }, (r) => {

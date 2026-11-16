@@ -62,7 +62,8 @@ export function registerPerfTools(server: McpServer) {
       description:
         "Audit the place for runtime frame-killers in one pass (part/physics load, " +
         "StreamingEnabled, CSG unions, precise meshes, shadow lights, particles, and " +
-        "scripts with un-yielded `while true do` loops). Returns a ranked fix list.",
+        "scripts with un-yielded `while true do` loops). Returns a ranked fix list. Read-only. " +
+        "For a general census of the place use project_health; for UI that breaks on other screens use scan_responsive.",
       inputSchema: { place: placeArg },
     },
     async ({ place }) => runStudio("scanPerf", {}, report, place),

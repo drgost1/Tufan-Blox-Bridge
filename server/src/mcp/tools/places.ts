@@ -8,7 +8,9 @@ export function registerPlaceTools(server: McpServer) {
   server.registerTool(
     "list_places",
     {
-      description: "List the Roblox Studio places currently connected to the bridge (placeId, name, gameId, project root). Use the placeId or name as the `place` arg on other tools to target a specific one.",
+      description:
+        "List the Roblox Studio places connected to the bridge right now, with placeId, name, gameId and project folder. Read-only. " +
+        "Call it first when several places are open, then pass a placeId or name as the place argument of other tools; with one place open, tools target it automatically. To check a single connection, ping is enough.",
       inputSchema: {},
     },
     async () => {
@@ -25,7 +27,9 @@ export function registerPlaceTools(server: McpServer) {
   server.registerTool(
     "pull_place",
     {
-      description: "Re-pull a connected place's full script tree into its local mirror folder (<project>/projects/<name>_<placeId>). Runs automatically on connect; use this to force a refresh.",
+      description:
+        "Re-read every script in a connected place and rewrite its mirror folder on disk (<project>/projects/<name>_<placeId>) to match Studio. It runs automatically on connect, so use it only when the files look out of date. " +
+        "Mirror files are overwritten; when git is on, uncommitted mirror changes are committed first so they can be recovered. Unpublished places (PlaceId 0) have no mirror.",
       inputSchema: { place: placeArg },
     },
     async ({ place }) => {
@@ -46,12 +50,14 @@ export function registerPlaceTools(server: McpServer) {
   server.registerTool(
     "copy_script_across",
     {
-      description: "Copy a script's Source from one connected place to another. The headline cross-place op — e.g. push a shared module from one game into another.",
+      description:
+        "Copy one script's Source from one connected place into another, for example to share a module between two games. Both places must be open in Studio. " +
+        "The destination script is overwritten if it exists, or created with any missing folders if it doesn't. Use list_places to get the place names or ids.",
       inputSchema: {
-        fromPlace: z.union([z.string(), z.number()]).describe("Source place (PlaceId or name)"),
-        sourcePath: z.string().describe("Script path in the source place"),
-        toPlace: z.union([z.string(), z.number()]).describe("Destination place (PlaceId or name)"),
-        destPath: z.string().optional().describe("Destination script path (defaults to sourcePath)"),
+        fromPlace: z.union([z.string(), z.number()]).describe("Place to copy from: its PlaceId or name, as list_places shows."),
+        sourcePath: z.string().describe('Dot path of the script in the source place, e.g. "ReplicatedStorage.Shared.Util".'),
+        toPlace: z.union([z.string(), z.number()]).describe("Place to copy into: its PlaceId or name, as list_places shows."),
+        destPath: z.string().optional().describe("Dot path for the script in the destination place. Defaults to the same path as sourcePath."),
       },
     },
     async ({ fromPlace, sourcePath, toPlace, destPath }) => {

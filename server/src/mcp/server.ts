@@ -66,6 +66,51 @@ const WRITE_TOOLS = new Set([
   // inspector mode.
 ]);
 
+// Read/write tools that are not in WRITE_TOOLS (their write path is gated at call
+// time) or that write only to local files. None of them is read-only.
+const MIXED_OR_LOCAL_WRITE_TOOLS = new Set([
+  "script_source", "tag", "git_branch", "git_remote", "format_scripts", "datastore",
+  "project_context", "export_sourcemap", "blender_process", "meshy_task",
+]);
+
+// Writers that never overwrite or remove existing data: they only add something new.
+const ADDITIVE_TOOLS = new Set([
+  "create_instance", "clone_instance", "create_tree", "insert_asset", "import_file", "generate_asset",
+  "git_commit", "git_push", "git_recover", "git_branch", "git_remote", "set_selection",
+  "meshy_generate", "meshy_task", "export_sourcemap", "blender_process",
+]);
+
+// Writers where repeating the same call with the same arguments has no further effect.
+const IDEMPOTENT_TOOLS = new Set([
+  "set_property", "mass_edit", "set_attribute", "mass_set_attribute", "set_selection",
+  "rename_instance", "move_instance", "delete_instance", "delete_snapshot", "restore",
+  "restore_from_mirror", "pull_place", "script_source", "tag", "place_on", "export_sourcemap",
+  "format_scripts", "project_context", "git_restore",
+]);
+
+// Tools that reach services outside this machine and the open Studio session.
+const OPEN_WORLD_TOOLS = new Set([
+  "search_assets", "get_asset_details", "get_asset_thumbnail", "insert_asset", "import_file", "http_get",
+  "git_push", "git_pull", "meshy_generate", "meshy_task", "generate_asset", "datastore", "cloud_luau",
+  "get_server_logs", "get_server_history",
+]);
+
+function toolTitle(name: string): string {
+  const title = name.split("_").map((word) => (word === "luau" ? "Luau" : word)).join(" ");
+  return title.charAt(0).toUpperCase() + title.slice(1);
+}
+
+/** MCP annotations for a tool, derived from the sets above. A tool's own config.annotations wins. */
+function annotationsFor(name: string) {
+  const readOnly = !WRITE_TOOLS.has(name) && !MIXED_OR_LOCAL_WRITE_TOOLS.has(name);
+  return {
+    title: toolTitle(name),
+    readOnlyHint: readOnly,
+    ...(readOnly ? {} : { destructiveHint: !ADDITIVE_TOOLS.has(name), idempotentHint: IDEMPOTENT_TOOLS.has(name) }),
+    openWorldHint: OPEN_WORLD_TOOLS.has(name),
+  };
+}
+
 // The lean default surface. TUFAN_TOOLSET=core exposes ONLY these ~25 so the model
 // isn't choosing among 70 tools every call ("many tools ≠ many hands"). Everything
 // else still works — it's just off the default surface until TUFAN_TOOLSET=full
@@ -126,10 +171,11 @@ export function createServer(): McpServer {
   const readOnly = runtimeConfig.readOnly;
   const coreOnly = process.env.TUFAN_TOOLSET === "core";
   const orig = server.registerTool.bind(server);
-  (server as any).registerTool = (name: string, config: unknown, handler: (...args: any[]) => Promise<any>) => {
+  (server as any).registerTool = (name: string, config: { annotations?: Record<string, unknown> }, handler: (...args: any[]) => Promise<any>) => {
     if (readOnly && WRITE_TOOLS.has(name)) return undefined;
     if (coreOnly && !CORE_TOOLS.has(name)) return undefined;
-    return (orig as any)(name, config, EDIT_COPY_TOOLS.has(name) ? withPlaySessionNote(handler) : handler);
+    const annotated = { ...config, annotations: { ...annotationsFor(name), ...config.annotations } };
+    return (orig as any)(name, annotated, EDIT_COPY_TOOLS.has(name) ? withPlaySessionNote(handler) : handler);
   };
   if (readOnly || coreOnly) {
     if (readOnly) log(`READ-ONLY mode — ${WRITE_TOOLS.size} write tools hidden; inspection only`);
@@ -140,7 +186,9 @@ export function createServer(): McpServer {
   server.registerTool(
     "ping",
     {
-      description: "Ping a connected Studio place. Returns its place name + session.",
+      description:
+        "Check that a Studio place is connected and answering, and return its name, PlaceId and session id. Read-only. " +
+        "Use it to confirm the plugin is connected before other calls, or to diagnose timeouts; list_places shows every connected place at once.",
       inputSchema: { place: placeArg },
     },
     async ({ place }) => runStudio("ping", {}, (r) => `pong — place="${r?.placeName ?? "?"}" (${r?.placeId ?? "?"}) session=${r?.sessionId ?? "?"}`, place),

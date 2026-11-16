@@ -10,6 +10,25 @@ export const placeArg = z
   .optional()
   .describe("Target place (PlaceId or project name). Defaults to the bound/sole connected place.");
 
+const PATH_FORMAT =
+  'Dot path from the DataModel root, e.g. "Workspace.Map.Door" or "StarterGui.HUD.Frame". ' +
+  'A leading "game." is optional; a duplicate sibling name takes the suffix Tufan prints, e.g. "Part (2)".';
+
+/** How property and attribute values are written in tool arguments (Serialize.decodeValue on the plugin side). */
+export const VALUE_FORMAT =
+  "Write a primitive (string, number, boolean) or a typed wrapper: {Vector3:[x,y,z]}, {Color3:[r,g,b]} (0-1), " +
+  "{UDim2:[xScale,xOffset,yScale,yOffset]}, {CFrame:[x,y,z] or all 12 components}, {EnumItem:\"Enum.Material.Wood\"}, {BrickColor:\"Bright red\"}.";
+
+/** A required instance path argument, described once so every tool explains the format the same way. */
+export function pathArg(what: string) {
+  return z.string().describe(`${what}. ${PATH_FORMAT}`);
+}
+
+/** An optional instance path argument; `fallback` says what happens when it is omitted. */
+export function optionalPathArg(what: string, fallback: string) {
+  return z.string().optional().describe(`${what}. ${PATH_FORMAT} Omit to use ${fallback}.`);
+}
+
 export type ToolText = {
   [x: string]: unknown;
   content: { type: "text"; text: string }[];

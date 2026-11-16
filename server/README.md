@@ -49,7 +49,7 @@ Then restart Roblox Studio and your AI client. The Studio plugin ships inside th
 
 - `TUFAN_PROJECT` — the Roblox project root (for file sync + git). Defaults to cwd.
 - `TUFAN_READONLY=1` — inspector mode: write tools hidden, `script_source`/`tag` readable but write-blocked.
-- `TUFAN_TOOLSET=core` — expose only the 29 everyday core tools (default `full` = all 87).
+- `TUFAN_TOOLSET=core` — expose only the 28 everyday core tools (default `full` = all 87).
 - `TUFAN_AUTOCOMMIT=1` — auto-commit every in-Studio script edit.
 - `TUFAN_AUTOPUSH=1` — also push after each commit.
 - `TUFAN_PROJECTS_DIR` — base dir override for auto-registered projects.

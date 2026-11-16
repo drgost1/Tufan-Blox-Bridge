@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg, text, errorText } from "../helpers.js";
+import { runStudio, placeArg, optionalPathArg, text, errorText } from "../helpers.js";
 
 // Roblox toolbox-service: the dev-asset (Model/Decal/Audio/Mesh) marketplace
 // behind Studio's Toolbox. Search returns ids; a batch details call adds names.
@@ -33,11 +33,14 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_assets",
     {
-      description: "Search the Roblox marketplace (Toolbox) for assets. Returns id + name and creator.",
+      description:
+        "Search the Roblox Creator Store (Studio's Toolbox) by keyword and list matching asset ids with name and creator. Read-only; calls Roblox's public web APIs and needs no Studio. " +
+        "Follow up with get_asset_details or get_asset_thumbnail, then insert_asset. Roblox no longer reports whether a model contains scripts, so run scan_backdoors after inserting a free model. " +
+        "To find instances already in the place use search_objects.",
       inputSchema: {
-        keyword: z.string(),
-        assetType: z.enum(["Model", "Decal", "Audio", "Mesh", "Plugin"]).optional().describe("default Model"),
-        limit: z.number().optional(),
+        keyword: z.string().describe('Search words, e.g. "medieval house" or "sword".'),
+        assetType: z.enum(["Model", "Decal", "Audio", "Mesh", "Plugin"]).optional().describe("Marketplace category to search. Default Model."),
+        limit: z.number().int().min(1).max(30).optional().describe("Maximum results, up to 30. Default 15."),
       },
     },
     async ({ keyword, assetType, limit }) => {
@@ -72,8 +75,10 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "get_asset_details",
     {
-      description: "Marketplace details for an asset id: name, creator, type, description, dates. Doesn't say whether a model contains scripts; run scan_backdoors after inserting one.",
-      inputSchema: { assetId: z.number() },
+      description:
+        "Fetch public marketplace details for one asset id as JSON: name, creator, asset type, description, created and updated dates, and whether it is for sale. Read-only; uses Roblox's public economy API. " +
+        "It does not say whether a model contains scripts, so run scan_backdoors after inserting one. To see the asset, use get_asset_thumbnail.",
+      inputSchema: { assetId: z.number().int().describe("Roblox asset id, e.g. from search_assets or a Creator Store URL.") },
     },
     async ({ assetId }) => {
       try {
@@ -91,10 +96,11 @@ export function registerAssetTools(server: McpServer) {
     "get_asset_thumbnail",
     {
       description:
-        "Fetch an asset's thumbnail as a PNG image so the AI can SEE what it looks like before using it. Uses Roblox's public thumbnail API (works for any public asset — no ownership needed, unlike insert_asset). Server-side.",
+        "Return an asset's thumbnail as a PNG image, so you can see what it looks like before inserting it. Read-only; uses Roblox's public thumbnail API and works for any public asset, owned or not. " +
+        "For text details use get_asset_details. This shows catalog art only; to see the open place use the official Studio MCP's screen_capture.",
       inputSchema: {
-        assetId: z.number(),
-        size: z.enum(["150x150", "420x420", "700x700"]).optional().describe("default 420x420"),
+        assetId: z.number().int().describe("Roblox asset id, e.g. from search_assets."),
+        size: z.enum(["150x150", "420x420", "700x700"]).optional().describe("Image size in pixels. Default 420x420."),
       },
     },
     async ({ assetId, size }) => {
@@ -119,8 +125,10 @@ export function registerAssetTools(server: McpServer) {
   server.registerTool(
     "search_materials",
     {
-      description: "List custom MaterialVariants defined in this place's MaterialService (name + base material), optionally filtered by name. For marketplace assets use search_assets instead; for other existing instances use search_objects/search_by_property.",
-      inputSchema: { name: z.string().optional().describe("filter by name substring"), place: placeArg },
+      description:
+        "List the custom MaterialVariants defined in this place's MaterialService, with each one's base material. Read-only. " +
+        "Use it to find a material name to set on parts with set_property or mass_edit. For marketplace assets use search_assets; for other instances use search_objects.",
+      inputSchema: { name: z.string().optional().describe("Only list variants whose name contains this text. Omit to list all."), place: placeArg },
     },
     async ({ name, place }) =>
       runStudio("searchMaterials", { name: name ?? null }, (r) =>
@@ -135,8 +143,14 @@ export function registerAssetTools(server: McpServer) {
     "insert_asset",
     {
       description:
-        "Insert a marketplace asset by id under parentPath (default Workspace). NOTE: Roblox's LoadAsset only authorizes assets the logged-in user OWNS (or Roblox-made ones) — most third-party free models will fail unless you first take them (Toolbox → Add to Inventory). Tip: run scan_backdoors after inserting free models. For a LOCAL file you already have, use import_file instead; to AI-generate a new mesh, use generate_asset instead.",
-      inputSchema: { assetId: z.number(), parentPath: z.string().optional(), place: placeArg },
+        "Insert a marketplace asset into the edit copy by id and return its path. Recorded as one Studio undo step. " +
+        "Roblox only lets Studio load assets the signed-in user owns, or Roblox-made ones, so most third-party free models fail until the user adds them to their inventory in the Toolbox. " +
+        "Run scan_backdoors after inserting a free model. For a file on this computer use import_file; to generate a new model with AI use generate_asset.",
+      inputSchema: {
+        assetId: z.number().int().describe("Roblox asset id, e.g. from search_assets."),
+        parentPath: optionalPathArg("Where to put the inserted asset", "Workspace"),
+        place: placeArg,
+      },
     },
     async ({ assetId, parentPath, place }) =>
       runStudio("insertAsset", { assetId, parentPath: parentPath ?? "Workspace" }, (r) => `Inserted ${r.path}`, place),

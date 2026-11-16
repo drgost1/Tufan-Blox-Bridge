@@ -21,6 +21,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "check:tools": "node scripts/check-tool-docs.mjs",
     "prepack": "node --input-type=commonjs -e \"require('fs').copyFileSync('../TufanBloxBridge.rbxm','TufanBloxBridge.rbxm')\"",
     "prepublishOnly": "npm run build"
   },

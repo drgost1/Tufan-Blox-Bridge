@@ -35,10 +35,10 @@ export function registerMirrorTools(server: McpServer) {
         "(seconds after a change), and keeps a frozen copy in .history whenever one is removed, loses " +
         "descendants (a delete or Ctrl+Z) or is overwritten after a quiet spell; scripts get the same. " +
         "Lists the live mirror files and the history copies whose path matches `path` (a unit or anything " +
-        "inside it). Restore one with restore_from_mirror.",
+        "inside it). Read-only. Restore one with restore_from_mirror; for snapshots taken inside the place use list_snapshots, and for committed script history use git_log.",
       inputSchema: {
-        path: z.string().optional().describe("Studio path or part of one, e.g. StarterGui.MineGui (omit for everything)"),
-        limit: z.number().int().min(1).max(500).optional().describe("max history rows (default 40)"),
+        path: z.string().optional().describe('Studio dot path, or the start of one, to filter by, e.g. "StarterGui.MineGui". Omit to list everything.'),
+        limit: z.number().int().min(1).max(500).optional().describe("Maximum history rows to return, up to 500. Default 40."),
         place: placeArg,
       },
     },

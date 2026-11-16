@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg } from "../helpers.js";
+import { runStudio, placeArg, pathArg, optionalPathArg, VALUE_FORMAT } from "../helpers.js";
 
 // Tagged-value keys the plugin's Serialize.decodeValue understands.
 const TAG_KEYS = new Set([
@@ -31,8 +31,15 @@ export function registerPropertyTools(server: McpServer) {
   server.registerTool(
     "get_properties",
     {
-      description: "Get all (or chosen) properties of the instance at path.",
-      inputSchema: { path: z.string(), names: z.array(z.string()).optional(), place: placeArg },
+      description:
+        "Read property values of one instance as JSON. Read-only. " +
+        "Without names it returns Name, ClassName, all attributes and a common set (Position, Size, CFrame, Color, Material, Transparency, Anchored, Text, Visible, Enabled, Value, Source and more) that applies to the class; Roblox has no API to list every property, so pass names for anything else. " +
+        "For identity, children, tags and attributes in one call use describe; for attributes only use get_attributes.",
+      inputSchema: {
+        path: pathArg("Instance to read"),
+        names: z.array(z.string()).optional().describe('Exact property names to read, e.g. ["Size", "ZIndex"]. Names that do not exist on the class are left out of the result.'),
+        place: placeArg,
+      },
     },
     async ({ path, names, place }) => runStudio("getProperties", { path, names: names ?? null }, undefined, place),
   );
@@ -40,8 +47,15 @@ export function registerPropertyTools(server: McpServer) {
   server.registerTool(
     "set_property",
     {
-      description: "Set one property. Value can be a primitive or {Vector3:[x,y,z]}, {Color3:[r,g,b]}, {UDim2:[xs,xo,ys,yo]}, {EnumItem:'Enum.Material.Wood'}.",
-      inputSchema: { path: z.string(), name: z.string(), value: z.any(), place: placeArg },
+      description:
+        "Set one property on one instance in the edit copy, recorded as one Studio undo step. Fails with the Roblox error if the property is read-only or the value has the wrong type. " +
+        "For more than one change use mass_edit (one call, one undo step); for attributes use set_attribute.",
+      inputSchema: {
+        path: pathArg("Instance to change"),
+        name: z.string().describe('Property name, e.g. "Transparency" or "BackgroundColor3".'),
+        value: z.any().describe(`New value. ${VALUE_FORMAT}`),
+        place: placeArg,
+      },
     },
     async ({ path, name, value, place }) => runStudio("setProperty", { path, name, value: maybeUnwrap(value) }, () => `Set ${path}.${name}`, place),
   );
@@ -53,9 +67,17 @@ export function registerPropertyTools(server: McpServer) {
     "mass_edit",
     {
       description:
-        "Apply MANY different property edits in ONE call (and one undo entry): edits = [{path, name, value}, ...]. Use this instead of many set_property calls — far fewer round-trips (Roblox HttpService caps ~500 req/min, so bulk single-edits throttle).",
+        "Apply many property changes, across any number of instances, in one call recorded as one Studio undo step. " +
+        "Each edit is tried on its own: failures (unresolved path, bad property or value) are listed with their index and reason, and the rest still apply. " +
+        "Prefer it over repeated set_property calls, since Roblox limits the plugin to about 500 requests a minute. For attributes use mass_set_attribute.",
       inputSchema: {
-        edits: z.array(z.object({ path: z.string(), name: z.string(), value: z.any() })),
+        edits: z.array(
+          z.object({
+            path: pathArg("Instance to change"),
+            name: z.string().describe("Property name"),
+            value: z.any().describe(`New value. ${VALUE_FORMAT}`),
+          }),
+        ).describe("One entry per change. The same path may appear several times."),
         place: placeArg,
       },
     },
@@ -80,8 +102,16 @@ export function registerPropertyTools(server: McpServer) {
   server.registerTool(
     "search_by_property",
     {
-      description: "Find instances under rootPath whose property equals value. For name/class search use search_objects instead; for the Roblox marketplace use search_assets.",
-      inputSchema: { rootPath: z.string().optional(), name: z.string(), value: z.any(), place: placeArg },
+      description:
+        "Find every instance under a root whose property equals a given value, and list their paths. Read-only. " +
+        "Use it for questions like \"which parts are still Anchored=false\" or \"which labels use Font Arial\". " +
+        "To find by name or class use search_objects; to search the Roblox marketplace use search_assets.",
+      inputSchema: {
+        rootPath: optionalPathArg("Where to start searching", "the whole DataModel (game)"),
+        name: z.string().describe('Property to compare, e.g. "Anchored" or "Material".'),
+        value: z.any().describe(`Value to match exactly. ${VALUE_FORMAT}`),
+        place: placeArg,
+      },
     },
     async ({ rootPath, name, value, place }) =>
       runStudio("searchByProperty", { rootPath: rootPath ?? "game", name, value: maybeUnwrap(value) }, (r) =>
@@ -92,15 +122,27 @@ export function registerPropertyTools(server: McpServer) {
 
   server.registerTool(
     "get_attributes",
-    { description: "All attributes of the instance at path.", inputSchema: { path: z.string(), place: placeArg } },
+    {
+      description:
+        "Read every attribute set on one instance as a JSON object of name to value. Read-only; returns {} when there are none. " +
+        "For attributes together with properties, tags and children use describe.",
+      inputSchema: { path: pathArg("Instance to read"), place: placeArg },
+    },
     async ({ path, place }) => runStudio("getAttributes", { path }, (r) => JSON.stringify(r?.attributes ?? {}, null, 2), place),
   );
 
   server.registerTool(
     "set_attribute",
     {
-      description: "Set an attribute on the instance at path (value may be primitive or a typed wrapper like {Vector3:[x,y,z]}).",
-      inputSchema: { path: z.string(), name: z.string(), value: z.any(), place: placeArg },
+      description:
+        "Create or overwrite one attribute on one instance, recorded as one Studio undo step. " +
+        "For several attributes use mass_set_attribute; for built-in properties use set_property.",
+      inputSchema: {
+        path: pathArg("Instance to change"),
+        name: z.string().describe("Attribute name. Letters, digits and underscores, up to 100 characters (a Roblox rule)."),
+        value: z.any().describe(`Attribute value. ${VALUE_FORMAT}`),
+        place: placeArg,
+      },
     },
     async ({ path, name, value, place }) => runStudio("setAttribute", { path, name, value: maybeUnwrap(value) }, () => `Set attribute ${name}`, place),
   );
@@ -109,10 +151,17 @@ export function registerPropertyTools(server: McpServer) {
     "mass_set_attribute",
     {
       description:
-        "Set MANY attributes across instances in ONE call + one undo entry: edits = [{path, name, value}, ...]. " +
-        "The attribute counterpart of mass_edit. Value may be a primitive or a typed wrapper like {Vector3:[x,y,z]}.",
+        "Set many attributes, across any number of instances, in one call recorded as one Studio undo step. " +
+        "Each edit is tried on its own; failures are listed with their index and reason while the rest still apply. " +
+        "The attribute version of mass_edit; for one attribute set_attribute is enough.",
       inputSchema: {
-        edits: z.array(z.object({ path: z.string(), name: z.string(), value: z.any() })),
+        edits: z.array(
+          z.object({
+            path: pathArg("Instance to change"),
+            name: z.string().describe("Attribute name"),
+            value: z.any().describe(`New value. ${VALUE_FORMAT}`),
+          }),
+        ).describe("One entry per change. The same path may appear several times."),
         place: placeArg,
       },
     },

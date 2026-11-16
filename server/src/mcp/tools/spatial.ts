@@ -187,16 +187,16 @@ return {
     "objects_in_region",
     {
       description:
-        "List parts whose bounds overlap a region: a box (center+size), a sphere (center+radius), or 'around' an instance (its bounding box, optionally padded). Spatial query for \"what's near X / inside this area\". Returns part paths + world pos + size. Read-only.",
+        "List parts whose bounds overlap a region: a box (center+size), a sphere (center+radius), or 'around' an instance (its bounding box, optionally padded). Spatial query for \"what's near X / inside this area\". Returns part paths + world pos + size. Read-only. Give center with size (box) or radius (sphere), or around instead. To find what is under a screen point use pick; to find by name use search_objects.",
       inputSchema: {
         center: z.array(z.number()).length(3).optional().describe("[x,y,z] region center"),
         size: z.array(z.number()).length(3).optional().describe("[x,y,z] box size (box mode)"),
         radius: z.number().optional().describe("sphere radius (sphere mode)"),
         around: z.string().optional().describe("instance path — use its bounding box as the region"),
         pad: z.number().optional().describe("grow the 'around' box by this many studs each side"),
-        maxParts: z.number().int().min(1).max(500).optional().describe("default 100"),
-        ignore: z.array(z.string()).optional(),
-        classFilter: z.string().optional().describe("IsA filter"),
+        maxParts: z.number().int().min(1).max(500).optional().describe("Maximum parts to return, up to 500. Default 100."),
+        ignore: z.array(z.string()).optional().describe("Dot paths of instances to leave out, together with their descendants."),
+        classFilter: z.string().optional().describe('Only return parts of this class or a subclass, e.g. "MeshPart".'),
         place: placeArg,
       },
     },

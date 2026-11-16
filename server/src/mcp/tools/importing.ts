@@ -35,7 +35,7 @@ export function registerImportTools(server: McpServer) {
       inputSchema: {
         filePath: z.string().optional().describe("Absolute path of the local file to upload"),
         name: z.string().optional().describe("Display name on Roblox (default: file name)"),
-        description: z.string().optional(),
+        description: z.string().optional().describe("Description shown on the asset's Roblox page. Default empty."),
         assetType: z
           .enum(["Model", "Audio", "Decal", "Animation"])
           .optional()

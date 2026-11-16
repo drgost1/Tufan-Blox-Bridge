@@ -8,13 +8,12 @@ export function registerLogTools(server: McpServer) {
     "get_recent_errors",
     {
       description:
-        "Errors + warnings the plugin has pushed live (incl. during a playtest), read from " +
-        "the server feed with NO Studio round-trip — returns instantly even while the place " +
-        "is busy running. Pass `since` (the cursor from the previous call) to get only NEW " +
-        "events, so you can poll a running playtest cheaply. Script + line are parsed out.",
+        "Read the errors and warnings Studio has produced, including during a play test, with script and line parsed out. Read-only. " +
+        "It reads the feed the plugin already pushed, so it answers instantly even while Studio is busy. Pass the cursor from the previous reply as since to get only new events. " +
+        "For all Output text (prints and info) use get_output_log; for your published game's live servers use get_server_logs.",
       inputSchema: {
-        since: z.number().optional().describe("only events after this seq cursor (from a prior call)"),
-        severity: z.enum(["error", "warning"]).optional(),
+        since: z.number().optional().describe("Cursor from a previous reply; only events after it are returned. Omit for everything still in the feed."),
+        severity: z.enum(["error", "warning"]).optional().describe("Return only errors or only warnings. Omit for both."),
         place: placeArg,
       },
     },
@@ -34,10 +33,12 @@ export function registerLogTools(server: McpServer) {
   server.registerTool(
     "get_output_log",
     {
-      description: "Recent Studio Output messages (edit mode). Optionally filter by severity.",
+      description:
+        "Read recent lines from Studio's Output window, prints included, newest last. Read-only. The plugin keeps the last 1,500 messages, play test output included. " +
+        "Use it to see what a script printed; for errors only, with script and line parsed, get_recent_errors is faster.",
       inputSchema: {
-        maxEntries: z.number().optional(),
-        severity: z.enum(["output", "info", "warning", "error"]).optional(),
+        maxEntries: z.number().int().min(1).optional().describe("How many of the most recent lines to return. Default 100."),
+        severity: z.enum(["output", "info", "warning", "error"]).optional().describe("Return only this message type. Omit for all."),
         place: placeArg,
       },
     },

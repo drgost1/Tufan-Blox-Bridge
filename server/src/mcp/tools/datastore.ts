@@ -100,7 +100,7 @@ export function registerDataStoreTools(server: McpServer) {
           "increment",
           "list_ordered",
           "get_ordered",
-        ]),
+        ]).describe("What to do. Reads: list_datastores, list_keys, get, list_ordered, get_ordered. Writes (need confirm true): set, delete, increment."),
         datastoreName: z.string().optional().describe("the DataStore name (required for standard entry actions)"),
         entryKey: z.string().optional().describe("the entry key (required for get/set/delete/increment/get_ordered)"),
         scope: z.string().optional().describe('DataStore scope (default "global")'),

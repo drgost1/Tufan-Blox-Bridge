@@ -8,7 +8,8 @@ export function registerHealthTools(server: McpServer) {
       description:
         "One-look census of the game (installed plugins and Studio UI excluded): instance / script / part counts, total Luau size, " +
         "particle + light counts, a per-service descendant breakdown, tag count, and StreamingEnabled. " +
-        "The fast 'what is this game?' overview before diving in. Read-only.",
+        "The fast 'what is this game?' overview before diving in. Read-only. " +
+        "For performance problems use scan_perf; for security use scan_backdoors; to explore the hierarchy use get_tree.",
       inputSchema: { place: placeArg },
     },
     async ({ place }) =>

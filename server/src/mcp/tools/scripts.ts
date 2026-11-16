@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { runStudio, placeArg, requireWritable, text, errorText } from "../helpers.js";
+import { runStudio, placeArg, pathArg, requireWritable, text, errorText } from "../helpers.js";
 import { createHash } from "node:crypto";
 import { dispatchTo, resolveTargetPlace } from "../../bridge/sessions.js";
 
@@ -9,12 +9,11 @@ export function registerScriptTools(server: McpServer) {
     "script_source",
     {
       description:
-        "Read OR write a script's Source. Omit `source` to READ the Source of a " +
-        "Script/LocalScript/ModuleScript by full path (e.g. 'ServerScriptService.MusicService'); " +
-        "pass `source` to OVERWRITE the whole Source. (Replaces get_script_source + set_script_source.)",
+        "Read a script's full Source, or replace all of it. Reading is read-only; writing overwrites the whole script (open editor tabs update too) and is blocked in read-only mode. " +
+        "For small changes prefer patch_script (anchored find/replace) or edit_script_lines (a line range), which don't resend the file. To search across scripts use grep_scripts.",
       inputSchema: {
-        path: z.string().describe("Full dotted instance path"),
-        source: z.string().optional().describe("omit to read; provide to overwrite the whole Source"),
+        path: pathArg('Script, LocalScript or ModuleScript, e.g. "ServerScriptService.MusicService"'),
+        source: z.string().optional().describe("New full Source. Omit to read the current Source instead."),
         place: placeArg,
       },
     },
@@ -31,8 +30,14 @@ export function registerScriptTools(server: McpServer) {
   server.registerTool(
     "grep_scripts",
     {
-      description: "Search the Source of all scripts for a Lua pattern. Returns path:line: text.",
-      inputSchema: { pattern: z.string(), ignoreCase: z.boolean().optional(), place: placeArg },
+      description:
+        "Search the Source of every script in the place and return matching lines as path:line: text. Read-only; stops at 500 matches. " +
+        "Use it to find where something is defined or used before editing. To find instances by name use search_objects; to replace text everywhere use find_and_replace_in_scripts.",
+      inputSchema: {
+        pattern: z.string().describe('Lua pattern (not a regex): magic characters ( ) . % + - * ? [ ^ $ need a % escape, e.g. "game%.Players".'),
+        ignoreCase: z.boolean().optional().describe("Match regardless of case. Default false."),
+        place: placeArg,
+      },
     },
     async ({ pattern, ignoreCase, place }) =>
       runStudio("grepScripts", { pattern, ignoreCase: ignoreCase ?? false }, (r) =>
@@ -49,12 +54,13 @@ export function registerScriptTools(server: McpServer) {
     "edit_script_lines",
     {
       description:
-        "Replace a line range in a script (1-indexed, inclusive) with newText — instead of re-sending the whole Source. Get line numbers from get_script_source/grep_scripts first. newText may be multi-line or empty (empties the range).",
+        "Replace a range of lines in one script with new text, without resending the whole Source; returns the new line count. Overwrites those lines. " +
+        "Line numbers shift after each edit, so re-read with script_source or grep_scripts before a second edit. When you can quote the text to change, patch_script is safer because it doesn't depend on line numbers.",
       inputSchema: {
-        path: z.string(),
-        startLine: z.number().describe("first line to replace (1-indexed)"),
-        endLine: z.number().describe("last line to replace (inclusive)"),
-        newText: z.string().describe("replacement text (multi-line ok; '' deletes the range)"),
+        path: pathArg("Script to edit"),
+        startLine: z.number().int().min(1).describe("First line to replace, counting from 1."),
+        endLine: z.number().int().describe("Last line to replace, inclusive. Use startLine - 1 to insert before startLine without removing anything."),
+        newText: z.string().describe('Replacement text; may span several lines. "" deletes the range.'),
         place: placeArg,
       },
     },
@@ -69,11 +75,13 @@ export function registerScriptTools(server: McpServer) {
   server.registerTool(
     "find_and_replace_in_scripts",
     {
-      description: "Project-wide plain-text find & replace across all scripts. Set dryRun=true first to preview which scripts + how many hits before applying.",
+      description:
+        "Replace a piece of plain text in every script of the place at once, for renames across the codebase. Overwrites every match in every script. " +
+        "Run with dryRun true first to see which scripts and how many matches would change. For changes inside one script use patch_script.",
       inputSchema: {
         find: z.string().describe("Plain text to find (not a pattern)"),
         replace: z.string().describe("Replacement text"),
-        dryRun: z.boolean().optional().describe("Preview only; don't modify (default false)"),
+        dryRun: z.boolean().optional().describe("List what would change without writing anything. Default false."),
         place: placeArg,
       },
     },
@@ -90,20 +98,22 @@ export function registerScriptTools(server: McpServer) {
     "patch_script",
     {
       description:
-        "Apply MANY anchored find/replace hunks to ONE script in one call — refactor-grade editing without resending the whole file. Each hunk is a LITERAL match (not a pattern), applied in order. ATOMIC: if a required hunk's `find` isn't present it errors and writes NOTHING (so a stale patch can't half-apply or silently no-op). Mark a hunk optional to skip it when absent. Set dryRun to validate the patch applies cleanly without writing.",
+        "Apply several literal find-and-replace hunks to one script in a single call, in order, without resending the file. " +
+        "All or nothing: if a required hunk's text is missing, it errors and writes nothing, so a stale patch can't half-apply. Use dryRun to check first. " +
+        "The safest way to edit code you can quote; for a line range use edit_script_lines, and for the same change in many scripts use find_and_replace_in_scripts.",
       inputSchema: {
-        path: z.string(),
+        path: pathArg("Script to patch"),
         hunks: z
           .array(
             z.object({
-              find: z.string().describe("literal text to find"),
-              replace: z.string().describe("replacement text"),
-              all: z.boolean().optional().describe("replace every occurrence (default: first only)"),
-              optional: z.boolean().optional().describe("skip instead of erroring if `find` is absent"),
+              find: z.string().describe("Exact text to find, including whitespace. Not a pattern."),
+              replace: z.string().describe("Text to put in its place."),
+              all: z.boolean().optional().describe("Replace every occurrence. Default false: only the first."),
+              optional: z.boolean().optional().describe("Skip this hunk instead of failing the whole patch when find is absent. Default false."),
             }),
           )
-          .describe("ordered hunks"),
-        dryRun: z.boolean().optional().describe("validate only; don't write"),
+          .describe("Hunks, applied in order; each sees the result of the previous ones."),
+        dryRun: z.boolean().optional().describe("Check that every hunk applies, without writing. Default false."),
         place: placeArg,
       },
     },
@@ -121,11 +131,10 @@ export function registerScriptTools(server: McpServer) {
     "find_duplicates",
     {
       description:
-        "Find scripts with IDENTICAL Source — copy-pasted code ripe for extracting into a shared " +
-        "ModuleScript. Hashes every script's Source and reports each cluster of 2+ exact matches, " +
-        "biggest first. Read-only.",
+        "Find groups of scripts whose Source is exactly identical, biggest group first: copy-pasted code to move into one shared ModuleScript. Read-only. " +
+        "Only exact copies match; near-duplicates with small edits are not reported. To search for a specific snippet use grep_scripts.",
       inputSchema: {
-        minLines: z.number().optional().describe("ignore scripts shorter than this many lines (default 3) — skips trivial stubs"),
+        minLines: z.number().int().min(1).optional().describe("Ignore scripts shorter than this many lines, to skip trivial stubs. Default 3."),
         place: placeArg,
       },
     },
