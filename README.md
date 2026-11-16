@@ -6,6 +6,8 @@
 
 Keep the built-in server for play tests and screenshots. Add Tufan for everything around them.
 
+Made by **[Tufan Studio](https://www.tufanstudio.net)**, a game and web studio that builds Roblox, FiveM and AI developer tools.
+
 **[Website and overview](https://www.tufanstudio.net/roblox-studio-mcp)** · **[npm](https://www.npmjs.com/package/tufan-blox-bridge)** · **[Latest release](https://github.com/drgost1/Tufan-Blox-Bridge/releases/latest)**
 
 Guides: **[Setup for Claude Code, Codex, Cursor, Antigravity, Gemini CLI and VS Code](https://www.tufanstudio.net/roblox-studio-mcp/setup)** · **[Roblox Studio MCP not working?](https://www.tufanstudio.net/roblox-studio-mcp/not-working)** · **[Best Roblox Studio MCP servers compared](https://www.tufanstudio.net/roblox-studio-mcp/best-servers)**
@@ -261,4 +263,4 @@ You choose how much it can do. Read-only mode hides every write tool, snapshots 
 
 ## License
 
-MIT © Tufan Studio.
+MIT © [Tufan Studio](https://www.tufanstudio.net).

@@ -44,7 +44,10 @@
     "backdoor-scanner",
     "tufan"
   ],
-  "author": "Tufan Studio",
+  "author": {
+    "name": "Tufan Studio",
+    "url": "https://www.tufanstudio.net"
+  },
   "license": "MIT",
   "homepage": "https://www.tufanstudio.net/roblox-studio-mcp",
   "repository": {
