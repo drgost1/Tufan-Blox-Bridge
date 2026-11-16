@@ -15,6 +15,7 @@
 local CollectionService = game:GetService("CollectionService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
+local Yield = require(script.Parent.Parent.Util.Yield)
 
 local MIN_TAP = 44
 local EPS = 1e-3  -- zero-size guard: parent AbsoluteSize below this counts as zero
@@ -199,6 +200,7 @@ cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit); fit()
 		local function addScripts(container)
 			if not container then return end
 			for _, d in ipairs(container:GetDescendants()) do
+				Yield.maybe()
 				if d:IsA("LuaSourceContainer") and not seen[d]
 					and not (pluginDebug and d:IsDescendantOf(pluginDebug)) then
 					seen[d] = true
@@ -222,6 +224,7 @@ cam:GetPropertyChangedSignal("ViewportSize"):Connect(fit); fit()
 		local driven = {}
 		local codeIssues = {}
 		for _, scr in ipairs(scoped) do
+			Yield.maybe()
 			local ok, src = pcall(function() return scr.Source end)
 			if ok and src then
 				local lines = splitLines(src)

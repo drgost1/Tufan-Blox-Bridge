@@ -4,6 +4,7 @@
 -- bounds. Replaces the 5-6 round-trips (get_properties + get_children +
 -- get_attributes + get_tags + grep for scripts) it used to take to understand a node.
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
+local Yield = require(script.Parent.Parent.Util.Yield)
 local CollectionService = game:GetService("CollectionService")
 
 local COMMON = {
@@ -58,6 +59,7 @@ return function(register)
 		-- attached scripts (descendant source containers) + line counts
 		local scripts = {}
 		for _, d in ipairs(inst:GetDescendants()) do
+			Yield.maybe()
 			if d:IsA("LuaSourceContainer") then
 				local lines = 0
 				local ok, src = pcall(function() return d.Source end)

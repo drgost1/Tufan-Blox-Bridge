@@ -110,7 +110,7 @@ function Poll:_handle(cmd)
 		self.hooks.onActivity(string.format("%s %s", ok and "✓" or "✗", cmd.op))
 	end
 	if self.hooks.onCommand then
-		pcall(self.hooks.onCommand, cmd.op)
+		pcall(self.hooks.onCommand, cmd.op, cmd.args)
 	end
 
 	-- Always send a response. If the result can't be JSON-encoded (e.g. it

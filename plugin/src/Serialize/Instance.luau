@@ -1,6 +1,8 @@
 --!nocheck
 -- Path resolution + value coercion between JSON (from the AI/server) and Roblox types.
 
+local Yield = require(script.Parent.Parent.Util.Yield)
+
 local Serialize = {}
 
 -- Same-named siblings collide on GetFullName(), so we disambiguate with a
@@ -76,6 +78,9 @@ function Serialize.forEachDescendantPath(root: Instance, visit: (Instance, strin
 		local seen = {}
 		for _, c in ipairs(children) do
 			if stopped then return end
+			-- every caller is a normal thread; a full walk of a big place is seconds
+			-- of path building, so hand frames back as it goes
+			Yield.maybe()
 			local name = c.Name
 			local k = (seen[name] or 0) + 1
 			seen[name] = k

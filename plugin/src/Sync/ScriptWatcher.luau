@@ -32,14 +32,12 @@ local COLLECT_YIELD_EVERY = 4000 -- instances walked per frame during a reconcil
 
 -- Does this instance hold script source, itself or anywhere below it? Adding or
 -- removing a plain part can't change the script set, so it shouldn't cost a walk.
+-- DescendantAdded / DescendantRemoving fire once for every instance in an added
+-- or removed subtree, so a script deep inside one gets its own event. Checking
+-- only the instance itself keeps a 10,000-part insert or delete O(n); searching
+-- each instance's subtree here made it O(n^2) and froze Studio.
 local function touchesScripts(inst: Instance): boolean
-	if inst:IsA("LuaSourceContainer") then
-		return true
-	end
-	local ok, found = pcall(function()
-		return inst:FindFirstChildWhichIsA("LuaSourceContainer", true)
-	end)
-	return not ok or found ~= nil
+	return inst:IsA("LuaSourceContainer")
 end
 
 function ScriptWatcher.new(sessionId, activity)

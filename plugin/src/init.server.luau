@@ -77,7 +77,7 @@ local dispatch = buildDispatch(ctx)
 local poll = Poll.new(dispatch, ctx, {
 	onStatus = function(connected) ui.setStatus(connected, ctx.sessionId) end,
 	onActivity = function(msg) ui.pushActivity(msg) end,
-	onCommand = function() instanceWatcher:noteCommand() end,
+	onCommand = function(op, args) instanceWatcher:noteCommand(op, args) end,
 })
 
 poll:start()
@@ -90,4 +90,4 @@ plugin.Unloading:Connect(function()
 	instanceWatcher:stop()
 end)
 
-print("[TufanBloxBridge] plugin v1.1.0 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")
+print("[TufanBloxBridge] plugin v1.2.0 started (session " .. string.sub(ctx.sessionId, 1, 8) .. ")")

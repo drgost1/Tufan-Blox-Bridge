@@ -2,6 +2,7 @@
 -- scanPerf: a single O(n) pass over the DataModel that tallies the usual Roblox
 -- frame-killers. The server turns these raw counts into a ranked fix list.
 local Workspace = game:GetService("Workspace")
+local Yield = require(script.Parent.Parent.Util.Yield)
 
 local LOOP_CAP = 25 -- max busy-loop scripts to report
 
@@ -133,6 +134,7 @@ return function(register)
 		end)
 
 		for _, d in ipairs(gameDescendants()) do
+			Yield.maybe()
 			s.total += 1
 			if d:IsA("BasePart") then
 				s.parts += 1
@@ -214,6 +216,7 @@ return function(register)
 			if ok then
 				if #kids > 0 then byService[svc.Name] = #kids end
 				for _, d in ipairs(kids) do
+					Yield.maybe()
 					c.instances += 1
 					if d:IsA("LuaSourceContainer") then
 						c.scripts += 1

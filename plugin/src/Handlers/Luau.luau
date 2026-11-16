@@ -2,6 +2,12 @@
 local LogService = game:GetService("LogService")
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
 
+-- checkpoint() yields once this many milliseconds have run without a yield.
+local CHECKPOINT_MS = 50
+-- A first stretch longer than this gets a warning in the reply (Studio's
+-- "not responding" prompt appears after roughly ten seconds).
+local WARN_STRETCH_SECONDS = 2
+
 return function(register)
 	register("runLuau", function(args)
 		local fn, compileErr = loadstring(args.code)
@@ -15,14 +21,28 @@ return function(register)
 			table.insert(logs, message)
 		end)
 
+		-- Studio runs plugin code on its main thread and shows "plugin is not
+		-- responding" when a stretch runs for seconds without yielding (a long
+		-- raycast or build loop). Luau can't preempt it, so the code gets a
+		-- checkpoint() global: call it inside long loops and it yields one frame
+		-- whenever CHECKPOINT_MS have passed since its last yield.
+		local lastYield = os.clock()
+		local function checkpoint(intervalMs)
+			if (os.clock() - lastYield) * 1000 >= (tonumber(intervalMs) or CHECKPOINT_MS) then
+				task.wait()
+				lastYield = os.clock()
+			end
+		end
+		local env = setmetatable({ checkpoint = checkpoint }, { __index = getfenv(fn) })
+		setfenv(fn, env)
+
 		-- Watchdog: user code may yield forever (timeout-less WaitForChild, :Wait()).
 		-- pcall catches errors but NOT infinite yields, so run it on a child
 		-- coroutine and race a deadline. The scheduler resumes the coroutine across
 		-- its yields and pcall(fn) runs to completion inside it, so legitimately
 		-- yielding code still returns its value. A timed-out coroutine can't be
 		-- killed in Luau — we stop waiting and return a clear error (kept below the
-		-- server's 90s command timeout). Tight non-yielding loops are already caught
-		-- by Luau's own execution-time guard, which pcall catches.
+		-- server's 90s command timeout).
 		local budget = tonumber(args.timeoutBudget) or 30
 		local done, ok, result = false, nil, nil
 		local co = coroutine.create(function()
@@ -30,7 +50,11 @@ return function(register)
 			done = true
 		end)
 		local deadline = os.clock() + budget
+		local firstStart = os.clock()
 		coroutine.resume(co)
+		-- how long the code held Studio before its first yield (its whole run if it never yields)
+		local firstStretch = os.clock() - firstStart
+		lastYield = os.clock()
 		while not done and os.clock() < deadline do
 			task.wait()
 		end
@@ -69,6 +93,16 @@ return function(register)
 			end
 		end
 
-		return { result = resultStr, resultJson = resultJson, logs = logs }
+		local warning
+		if firstStretch >= WARN_STRETCH_SECONDS then
+			warning = string.format(
+				"This code held Studio for %.1fs without yielding; past about 10s Studio asks to stop the plugin. "
+					.. "Call checkpoint() inside long loops (it yields every %d ms), or split the work across calls.",
+				firstStretch,
+				CHECKPOINT_MS
+			)
+		end
+
+		return { result = resultStr, resultJson = resultJson, logs = logs, warning = warning }
 	end)
 end

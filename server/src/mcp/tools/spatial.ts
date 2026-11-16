@@ -31,7 +31,8 @@ async function probe(place: string | number | undefined, body: string): Promise<
   const target = resolveTargetPlace(place);
   if (target.error) return { error: target.error };
   try {
-    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: PRELUDE + body });
+    // readOnly tells the plugin this run changes nothing, so it skips the mirror sweep
+    const r: any = await dispatchTo(target.placeId!, "runLuau", { code: PRELUDE + body, readOnly: true });
     if (r?.resultJson !== undefined && r?.resultJson !== null) return { data: r.resultJson };
     // a script that returned a primitive/string (shouldn't happen for these) or nothing
     return { error: r?.result != null ? String(r.result) : "no result returned from Studio" };

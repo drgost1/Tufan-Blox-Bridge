@@ -134,6 +134,7 @@ const ROUTING_INSTRUCTIONS = [
   "- Real-time debugging in a running game: official execute_luau with datamodel_type Client or Server, plus get_console_output. Tufan's get_recent_errors also streams live errors.",
   "- Everything else, use Tufan: editing scripts and instances, bulk builds (batch, create_tree, mass_edit), snapshot/restore, git, backdoor and performance scans, asset import, DataStore and production logs.",
   "- Big jobs: Roblox allows the plugin about 500 HTTP requests a minute, roughly 240 Tufan calls. Prefer batch, create_tree and mass_edit over many single calls; past the limit calls wait instead of failing.",
+  "- Long run_luau code: it runs on Studio's main thread, so call checkpoint() inside every long loop (raycasts, builds, audits). Without it Studio freezes and asks the user to stop the plugin after about 10 seconds.",
   "If the official server isn't connected, tell the user instead of treating a Tufan result as proof of how the running game behaves.",
 ].join("\n");
 
@@ -163,7 +164,7 @@ function withPlaySessionNote(handler: (...args: any[]) => Promise<any>) {
 }
 
 export function createServer(): McpServer {
-  const server = new McpServer({ name: "tufan-blox-bridge", version: "1.1.0" }, { instructions: ROUTING_INSTRUCTIONS });
+  const server = new McpServer({ name: "tufan-blox-bridge", version: "1.2.0" }, { instructions: ROUTING_INSTRUCTIONS });
 
   // Tiering: wrap registerTool once to drop tools that the active mode hides.
   //   TUFAN_READONLY=1     → hide every write tool (inspection only)

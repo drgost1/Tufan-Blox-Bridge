@@ -53,6 +53,7 @@ end
 return function(register)
 	register("scanBackdoors", function(args)
 		local Serialize = require(script.Parent.Parent.Serialize.Instance)
+		local Yield = require(script.Parent.Parent.Util.Yield)
 		local root = game
 		if args.rootPath and args.rootPath ~= "" and args.rootPath ~= "game" then
 			local r = Serialize.resolve(args.rootPath)
@@ -81,6 +82,7 @@ return function(register)
 					local lineNo = 0
 					for line in (src .. "\n"):gmatch("(.-)\n") do
 						lineNo += 1
+						Yield.maybe()
 
 						-- precise require-of-Value: require(<expr>.Value)
 						for call in line:gmatch("require%s*%b()") do

@@ -12,9 +12,10 @@
 --     where most hand edits happen)
 --   * undo / redo: every StarterGui unit plus the selection's units are checked
 --   * everything else: a periodic sweep, plus a sweep shortly after AI commands
--- A check serializes the unit and compares it with what was last uploaded, so
--- nothing is sent unless the bytes really changed. Flushes are debounced and
--- batched into one POST, which keeps a big GUI rebuild to a couple of requests
+-- A check serializes the unit and compares a hash of it with the hash of what
+-- was last uploaded, so nothing is sent unless the bytes really changed (and the
+-- plugin keeps 32 bytes per unit in memory instead of a copy of every unit).
+-- Flushes are debounced and batched into one POST, which keeps a big GUI rebuild to a couple of requests
 -- (the plugin's HTTP budget is about 500 a minute).
 --
 -- The server keeps a frozen copy in .history/ whenever a unit is removed, loses
@@ -41,7 +42,23 @@ local SKIP_NAMES = { _TufanSnapshots = true }
 local FLUSH_DEBOUNCE = 2 -- seconds of quiet before dirty units are checked
 local SWEEP_INTERVAL = 90 -- full check of every unit
 local COMMAND_SWEEP_GAP = 20 -- at most one extra sweep this often after AI commands
+
+-- Commands that never change the place. They don't trigger a sweep, so a burst
+-- of reads (get_tree, grep, scans) costs no serialization at all.
+local READ_ONLY_OPS = {
+	describe = true, getAttributes = true, getChildren = true, getDescendants = true,
+	getOutputLog = true, getProperties = true, getScriptSource = true, getSelection = true,
+	getServices = true, getTagged = true, getTags = true, getTree = true, grepScripts = true,
+	isRunning = true, listSnapshots = true, ping = true, projectHealth = true, pullAll = true,
+	scanBackdoors = true, scanPerf = true, scanResponsive = true, searchByProperty = true,
+	searchMaterials = true, searchObjects = true, setSelection = true,
+}
 local RETRY_DELAY = 8 -- after a failed upload (server not ready, HTTP budget)
+-- Units that take longer than this to serialize are left out of the periodic
+-- sweep and only checked every HEAVY_SWEEP_EVERY sweeps, unless an edit marked
+-- them dirty. A 40,000-instance backup folder costs a third of a second per check.
+local HEAVY_UNIT_SECONDS = 0.1
+local HEAVY_SWEEP_EVERY = 4
 local MAX_BATCH_BYTES = 4 * 1024 * 1024 -- raw bytes per POST (base64 adds a third)
 local MAX_UNIT_BYTES = 40 * 1024 * 1024 -- anything bigger is skipped with a warning
 
@@ -75,7 +92,9 @@ function InstanceWatcher.new(sessionId, activity)
 		sessionId = sessionId,
 		activity = activity,
 		roots = roots, -- [service] = serviceName
-		cache = {}, -- [key] = last uploaded serialized string
+		cache = {}, -- [key] = hash of the last uploaded bytes (or "__too_big")
+		cost = {}, -- [key] = seconds the last serialize of this unit took
+		periodicSweeps = 0,
 		known = {}, -- [key] = true   (what the server holds)
 		dirty = {}, -- [unitInst] = "edit" | "child-removed"
 		changeConns = {}, -- [inst] = RBXScriptConnection (fine-grained services)
@@ -168,9 +187,16 @@ function InstanceWatcher:_scheduleFlush(delaySeconds)
 end
 
 -- Called by the poll loop after every AI command: AI edits outside StarterGui
--- fire no Changed we listen to, so run a sweep soon (rate-limited).
-function InstanceWatcher:noteCommand()
+-- fire no Changed we listen to, so run a sweep soon (rate-limited). Read-only
+-- commands, and run_luau calls the server marks read-only, are skipped.
+function InstanceWatcher:noteCommand(op: string?, args: { [string]: any }?)
 	if not self.started then
+		return
+	end
+	if op and READ_ONLY_OPS[op] then
+		return
+	end
+	if op == "runLuau" and type(args) == "table" and args.readOnly == true then
 		return
 	end
 	local now = os.clock()
@@ -180,7 +206,7 @@ function InstanceWatcher:noteCommand()
 	self.lastCommandSweep = now
 	task.delay(5, function()
 		if self.started then
-			self.sweepAll = true
+			self.sweepAll = self.sweepAll or "command"
 			self:_scheduleFlush(0)
 		end
 	end)
@@ -188,18 +214,23 @@ end
 
 -- ---- serialize + upload -------------------------------------------------------------
 
-local function serialize(inst: Instance): (string?, string?)
+local function serialize(inst: Instance): (buffer?, string?)
 	local ok, result = pcall(function()
 		return SerializationService:SerializeInstancesAsync({ inst })
 	end)
 	if not ok then
 		return nil, tostring(result)
 	end
-	return buffer.tostring(result), nil
+	return result, nil
 end
 
-local function base64(data: string): string
-	return buffer.tostring(EncodingService:Base64Encode(buffer.fromstring(data)))
+-- 32-byte digest of a serialized unit; about 1 ms per MB.
+local function digest(data: buffer): string
+	return buffer.tostring(EncodingService:ComputeBufferHash(data, Enum.HashAlgorithm.Blake3))
+end
+
+local function base64(data: buffer): string
+	return buffer.tostring(EncodingService:Base64Encode(data))
 end
 
 function InstanceWatcher:_post(payload): (boolean, any)
@@ -257,6 +288,12 @@ end
 function InstanceWatcher:_flushOnce()
 	local sweep = self.sweepAll
 	self.sweepAll = false
+	-- periodic sweeps skip heavy units except every HEAVY_SWEEP_EVERY-th one
+	local skipHeavy = false
+	if sweep == "periodic" then
+		self.periodicSweeps += 1
+		skipHeavy = self.periodicSweeps % HEAVY_SWEEP_EVERY ~= 0
+	end
 	local dirty = self.dirty
 	self.dirty = {}
 
@@ -290,24 +327,31 @@ function InstanceWatcher:_flushOnce()
 				reason = late
 			end
 		end
-		if sweep or reason or self.cache[key] == nil then
+		local heavySkip = skipHeavy and not reason and (self.cost[key] or 0) > HEAVY_UNIT_SECONDS
+		if (sweep or reason or self.cache[key] == nil) and not heavySkip then
+			local started = os.clock()
 			local data, serr = serialize(u.inst)
+			self.cost[key] = os.clock() - started
 			if not data then
 				warn(("[TufanBloxBridge] couldn't serialize %s for the mirror: %s"):format(key, tostring(serr)))
-			elseif #data > MAX_UNIT_BYTES then
+			elseif buffer.len(data) > MAX_UNIT_BYTES then
 				if self.cache[key] ~= "__too_big" then
-					warn(("[TufanBloxBridge] %s is %d MB, too big for the instance mirror; skipped"):format(key, #data // (1024 * 1024)))
+					warn(("[TufanBloxBridge] %s is %d MB, too big for the instance mirror; skipped"):format(key, buffer.len(data) // (1024 * 1024)))
 				end
 				pendingCache[key] = "__too_big"
-			elseif data ~= self.cache[key] then
-				table.insert(upserts, {
-					studioPath = key,
-					service = u.service,
-					name = u.name,
-					className = u.inst.ClassName,
-					reason = reason or "edit",
-					raw = data,
-				})
+			else
+				local hash = digest(data)
+				if hash ~= self.cache[key] then
+					table.insert(upserts, {
+						studioPath = key,
+						service = u.service,
+						name = u.name,
+						className = u.inst.ClassName,
+						reason = reason or "edit",
+						raw = data,
+						hash = hash,
+					})
+				end
 			end
 			task.wait()
 		end
@@ -361,7 +405,7 @@ function InstanceWatcher:_flushOnce()
 		end
 		if ok then
 			for _, item in ipairs(batch) do
-				self.cache[item.studioPath] = item.raw
+				self.cache[item.studioPath] = item.hash
 				self.known[item.studioPath] = true
 			end
 			if isLast then
@@ -387,11 +431,12 @@ function InstanceWatcher:_flushOnce()
 	end
 
 	for _, item in ipairs(upserts) do
-		if batchBytes > 0 and batchBytes + #item.raw > MAX_BATCH_BYTES then
+		local size = buffer.len(item.raw)
+		if batchBytes > 0 and batchBytes + size > MAX_BATCH_BYTES then
 			send(false)
 		end
 		table.insert(batch, item)
-		batchBytes += #item.raw
+		batchBytes += size
 	end
 	send(true)
 
@@ -451,10 +496,9 @@ function InstanceWatcher:start()
 		end))
 		table.insert(self.globalConns, svc.DescendantRemoving:Connect(function(d)
 			if fine then
+				-- each removed descendant fires its own event, so unwatch just this one;
+				-- walking d's subtree here made deleting a big GUI O(n^2)
 				self:_unwatchChanged(d)
-				for _, sub in ipairs(d:GetDescendants()) do
-					self:_unwatchChanged(sub)
-				end
 			end
 			local unit = self:_unitOf(d)
 			if unit == d then
@@ -485,7 +529,7 @@ function InstanceWatcher:start()
 		while self.started do
 			task.wait(SWEEP_INTERVAL)
 			if self.started then
-				self.sweepAll = true
+				self.sweepAll = "periodic"
 				self:_flush()
 			end
 		end

@@ -1,5 +1,6 @@
 --!nocheck
 local Serialize = require(script.Parent.Parent.Serialize.Instance)
+local Yield = require(script.Parent.Parent.Util.Yield)
 local ScriptEditorService = game:GetService("ScriptEditorService")
 
 return function(register)
@@ -31,12 +32,14 @@ return function(register)
 		local ignoreCase = args.ignoreCase
 		local matches = {}
 		for _, d in ipairs(game:GetDescendants()) do
+			Yield.maybe()
 			if d:IsA("LuaSourceContainer") then
 				local ok, src = pcall(function() return d.Source end)
 				if ok and src then
 					local lineNo = 0
 					for line in (src .. "\n"):gmatch("(.-)\n") do
 						lineNo += 1
+						Yield.maybe()
 						local hay = ignoreCase and string.lower(line) or line
 						local needle = ignoreCase and string.lower(pattern) or pattern
 						if string.find(hay, needle) then
@@ -56,6 +59,7 @@ return function(register)
 		local pluginDebug = game:FindFirstChild("PluginDebugService")
 		local scripts = {}
 		for _, d in ipairs(game:GetDescendants()) do
+			Yield.maybe()
 			if d:IsA("LuaSourceContainer") then
 				if pluginDebug and d:IsDescendantOf(pluginDebug) then
 					continue
@@ -124,6 +128,7 @@ return function(register)
 		local dryRun = args.dryRun
 		local edits = {}
 		for _, d in ipairs(game:GetDescendants()) do
+			Yield.maybe()
 			if d:IsA("LuaSourceContainer") then
 				local ok, src = pcall(function() return d.Source end)
 				if ok and src and string.find(src, find, 1, true) then
