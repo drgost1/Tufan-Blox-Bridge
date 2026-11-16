@@ -28,6 +28,7 @@ local EncodingService = game:GetService("EncodingService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local Selection = game:GetService("Selection")
 local Config = require(script.Parent.Parent.Net.Config)
+local Yield = require(script.Parent.Parent.Util.Yield)
 
 local InstanceWatcher = {}
 InstanceWatcher.__index = InstanceWatcher
@@ -59,7 +60,7 @@ local RETRY_DELAY = 8 -- after a failed upload (server not ready, HTTP budget)
 -- them dirty. A 40,000-instance backup folder costs a third of a second per check.
 local HEAVY_UNIT_SECONDS = 0.1
 local HEAVY_SWEEP_EVERY = 4
-local MAX_BATCH_BYTES = 4 * 1024 * 1024 -- raw bytes per POST (base64 adds a third)
+local MAX_BATCH_BYTES = 1024 * 1024 -- raw bytes per POST (base64 adds a third); a bigger unit goes alone
 local MAX_UNIT_BYTES = 40 * 1024 * 1024 -- anything bigger is skipped with a warning
 
 local function unitSegment(inst: Instance): string
@@ -176,13 +177,31 @@ function InstanceWatcher:_markFineGrainedUnits()
 	end
 end
 
+-- Debounce with one sleeping thread per burst: a later call only moves the due
+-- time, so a 10,000-instance insert doesn't create and cancel 10,000 threads.
+-- An earlier due time (a flush asked for now) restarts the timer.
 function InstanceWatcher:_scheduleFlush(delaySeconds)
-	if self.flushTimer then
+	local due = os.clock() + delaySeconds
+	if self.flushTimer and due < self.flushDue then
 		task.cancel(self.flushTimer)
-	end
-	self.flushTimer = task.delay(delaySeconds, function()
 		self.flushTimer = nil
-		self:_flush()
+	end
+	self.flushDue = due
+	if self.flushTimer then
+		return
+	end
+	self.flushTimer = task.defer(function()
+		while self.started do
+			local remaining = self.flushDue - os.clock()
+			if remaining <= 0 then
+				break
+			end
+			task.wait(remaining)
+		end
+		self.flushTimer = nil
+		if self.started then
+			self:_flush()
+		end
 	end)
 end
 
@@ -483,11 +502,6 @@ function InstanceWatcher:start()
 
 	for svc, svcName in pairs(self.roots) do
 		local fine = FINE_GRAINED[svcName]
-		if fine then
-			for _, d in ipairs(svc:GetDescendants()) do
-				self:_watchChanged(d)
-			end
-		end
 		table.insert(self.globalConns, svc.DescendantAdded:Connect(function(d)
 			if fine then
 				self:_watchChanged(d)
@@ -520,6 +534,23 @@ function InstanceWatcher:start()
 		table.insert(self.globalConns, ChangeHistoryService.OnRecordingFinished:Connect(function()
 			self:_markSelection()
 		end))
+	end)
+
+	-- Hook the StarterGui descendants that already exist. The signals above are
+	-- connected first, so nothing added meanwhile is missed, and this yields as it
+	-- goes: a big UI is tens of thousands of connections.
+	task.spawn(function()
+		for svc, svcName in pairs(self.roots) do
+			if FINE_GRAINED[svcName] then
+				for _, d in ipairs(svc:GetDescendants()) do
+					if not self.started then
+						return
+					end
+					self:_watchChanged(d)
+					Yield.maybe()
+				end
+			end
+		end
 	end)
 
 	-- first flush uploads everything that differs and sends the manifest

@@ -21,7 +21,7 @@ ScriptWatcher.__index = ScriptWatcher
 
 local DEBOUNCE = 0.3 -- source-edit coalesce
 local RECONCILE_DEBOUNCE = 0.25 -- coalesce a burst of structural events
-local RECONCILE_INTERVAL = 60 -- periodic safety-net sweep (seconds). Event signals
+local RECONCILE_INTERVAL = 180 -- periodic safety-net sweep (seconds). Event signals
 -- (DescendantAdded/Removing + per-script Name/Ancestry) drive instant reconciles;
 -- this only catches the rare no-signal case (e.g. renaming a Folder of scripts),
 -- so it can be infrequent — keeps idle CPU low on large places.
